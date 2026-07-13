@@ -49,4 +49,31 @@ describe('usdc decimals boundary', () => {
     expect(() => parseUsdc('0')).toThrow();
     expect(() => parseUsdc('-1')).toThrow();
   });
+
+  it('formatUsdc rejects negative amounts', () => {
+    expect(() => formatUsdc(-1n)).toThrow();
+    expect(() => formatUsdc(-1_500_000n)).toThrow();
+  });
+
+  it('formatUsdc(0n) still returns 0.00', () => {
+    expect(formatUsdc(0n)).toBe('0.00');
+  });
+
+  it('formatNativeUsdc rejects negative wei', () => {
+    expect(() => formatNativeUsdc(-1n)).toThrow();
+  });
+
+  it('formatNativeUsdc validates precision is in [1, 18]', () => {
+    expect(() => formatNativeUsdc(0n, 0)).toThrow();
+    expect(() => formatNativeUsdc(0n, -1)).toThrow();
+    expect(() => formatNativeUsdc(0n, 19)).toThrow();
+  });
+
+  it('formatNativeUsdc(0n) still returns 0.0000', () => {
+    expect(formatNativeUsdc(0n)).toBe('0.0000');
+  });
+
+  it('formatNativeUsdc works with non-default precision', () => {
+    expect(formatNativeUsdc(10_000_000_000_000_000n, 6)).toBe('0.010000');
+  });
 });

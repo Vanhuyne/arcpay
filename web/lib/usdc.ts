@@ -23,6 +23,7 @@ export function fromNative(wei: bigint): bigint {
 
 /** "5.00", "1.234567" — for display only. */
 export function formatUsdc(amount6: bigint): string {
+  if (amount6 < 0n) throw new Error('Amount must not be negative');
   const whole = amount6 / 1_000_000n;
   const frac = amount6 % 1_000_000n;
   if (frac === 0n) return `${whole}.00`;
@@ -36,6 +37,10 @@ export function formatUsdc(amount6: bigint): string {
  * to prevent.
  */
 export function formatNativeUsdc(wei: bigint, precision = 4): string {
+  if (wei < 0n) throw new Error('Amount must not be negative');
+  if (!Number.isInteger(precision) || precision < 1 || precision > 18) {
+    throw new Error('Precision must be an integer between 1 and 18');
+  }
   const scale = 10n ** BigInt(NATIVE_DECIMALS - precision);
   const scaled = wei / scale;
   const whole = scaled / 10n ** BigInt(precision);
