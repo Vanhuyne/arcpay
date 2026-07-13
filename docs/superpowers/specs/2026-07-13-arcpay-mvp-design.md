@@ -1,114 +1,115 @@
 # ArcPay — MVP Design Spec
 
-- **Ngày:** 2026-07-13
-- **Trạng thái:** Đã duyệt, sẵn sàng lập kế hoạch triển khai
-- **Mục tiêu:** Dự thi hackathon / xin grant của Circle trên Arc Chain
+- **Date:** 2026-07-13
+- **Status:** Approved, ready for implementation planning
+- **Goal:** Circle / Arc Chain hackathon & grant submission
 
 ---
 
-## 1. Tóm tắt
+## 1. Summary
 
-ArcPay là cổng thanh toán tại quầy (POS) chạy trên **Arc Chain** — Layer-1 của Circle dùng USDC làm native gas token.
+ArcPay is a point-of-sale payment gateway built on **Arc Chain** — Circle's Layer-1 that uses USDC as its native gas token.
 
-Merchant tạo hoá đơn, hiện QR. Khách quét bằng camera điện thoại, mở trang checkout, bấm trả một lần, và màn hình merchant chuyển sang "ĐÃ THANH TOÁN" trong dưới một giây.
+A merchant creates an invoice and displays a QR code. The customer scans it with their phone camera, lands on a checkout page, taps pay once, and the merchant's screen flips to **PAID** in under a second.
 
-**Vì sao phải là Arc, không phải Base/Polygon:** trên mọi EVM chain khác, để trả bằng USDC khách vẫn phải giữ sẵn ETH/MATIC để trả gas. Một quán cà phê và khách hàng của họ sẽ không bao giờ làm việc đó. Trên Arc, gas cũng là USDC — khách chỉ cần **một tài sản duy nhất** trong ví. Cộng với finality dưới 1 giây và không có reorg, "đã thanh toán" thật sự có nghĩa là đã thanh toán, ngay tại quầy.
+**Why this has to be Arc, and not Base or Polygon:** on every other EVM chain, paying with USDC still requires the customer to hold ETH or MATIC for gas. A coffee shop and its customers will never do that. On Arc, gas *is* USDC — the customer needs exactly **one asset** in their wallet. Combined with sub-second deterministic finality and no reorgs, "paid" genuinely means paid, right at the counter.
 
 ---
 
-## 2. Bối cảnh kỹ thuật của Arc
+## 2. Arc technical context
 
-Các dữ kiện dưới đây là nền tảng của mọi quyết định thiết kế trong tài liệu này.
+Every design decision in this document rests on the facts below.
 
-| Thông số | Giá trị |
+| Parameter | Value |
 |---|---|
 | Chain ID | `5042002` |
-| RPC HTTP | `https://rpc.testnet.arc.network` |
-| RPC WebSocket | `wss://rpc.testnet.arc.network` |
+| RPC (HTTP) | `https://rpc.testnet.arc.network` |
+| RPC (WebSocket) | `wss://rpc.testnet.arc.network` |
 | Explorer | `https://testnet.arcscan.app` |
 | Faucet | `https://faucet.circle.com` |
 | Block time | ~0.48s |
-| Finality | < 1s, deterministic (Malachite BFT), không reorg |
-| Execution | Reth — EVM đầy đủ, baseline Osaka |
+| Finality | < 1s, deterministic (Malachite BFT), no reorgs |
+| Execution | Reth — full EVM, Osaka baseline |
 | Gas token | USDC (native) |
-| Chi phí giao dịch mục tiêu | ~$0.01 |
+| Target tx cost | ~$0.01 |
 | USDC ERC-20 interface | `0x3600000000000000000000000000000000000000` |
 
-**Ba đặc điểm khác biệt được khai thác trực tiếp:**
+**Three differentiators this design exploits directly:**
 
-1. **USDC là native gas.** Khách chỉ cần USDC, không cần token thứ hai. Đây là toàn bộ luận điểm sản phẩm.
-2. **EIP-7708 — mọi chuyển USDC native đều phát ra `Transfer` log.** Trên Ethereum, gửi native token không sinh event, muốn phát hiện phải quét từng transaction. Trên Arc, phát hiện thanh toán chỉ là lắng nghe log.
-3. **Finality < 1s.** Cho phép coi giao dịch là chung cuộc ngay tại quầy, không cần "chờ N xác nhận".
+1. **USDC is native gas.** The customer needs no second token. This is the entire product thesis.
+2. **EIP-7708 — every native USDC movement emits a `Transfer` log.** On Ethereum, native transfers emit nothing, so detecting a payment means scanning every transaction in a block. On Arc, detecting a payment is just listening to logs.
+3. **Sub-second finality.** A transaction can be treated as final at the counter — no "wait for N confirmations".
 
-**Cảnh báo quan trọng — decimals kép:** USDC native dùng **18 decimals** (`msg.value`, gas), interface ERC-20 dùng **6 decimals** (`balanceOf`, `transfer`). Đây là **cùng một số dư**, hai cách biểu diễn. Trộn lẫn hai con số này sai một triệu lần. Xem mục 5.
+**Critical warning — dual decimals:** native USDC uses **18 decimals** (`msg.value`, gas), while the ERC-20 interface uses **6 decimals** (`balanceOf`, `transfer`). These are the **same balance**, viewed two ways. Mixing them up is a one-million-fold error. See section 5.
 
 ---
 
-## 3. Người dùng và chức năng
+## 3. Users and capabilities
 
-Đúng **hai** persona. Mỗi persona thêm vào là thêm màn hình, thêm state, thêm chỗ để hỏng lúc demo.
+Exactly **two** personas. Every extra persona is another screen, more state, and one more thing to break during the demo.
 
-### 3.1. Merchant (người bán)
+### 3.1. Merchant
 
-Ví là tài khoản. Đăng nhập bằng **SIWE** (Sign-In With Ethereum) — không email, không mật khẩu, không KYC. Địa chỉ ví đăng nhập cũng chính là địa chỉ nhận tiền, nên không có bước cấu hình tài khoản nhận.
+The wallet *is* the account. Login is **SIWE** (Sign-In With Ethereum) — no email, no password, no KYC. The address they sign in with is also the address that receives funds, so there is no "configure payout account" step.
 
-| Chức năng | Mô tả |
+| Capability | Description |
 |---|---|
-| Tạo hoá đơn | Nhập số tiền (USDC) + mô tả ngắn. Hệ thống sinh `invoiceId` và link thanh toán. **Không tốn gas, không phải ký gì.** |
-| Màn hình POS | Trang toàn màn hình, QR to, số tiền lớn. Tự cập nhật: chờ → **ĐÃ THANH TOÁN** + âm thanh. Đây là trái tim của demo. |
-| Dashboard | Danh sách hoá đơn (pending / paid / expired), tổng doanh thu, số dư USDC của ví, link ArcScan từng giao dịch. |
-| Chi tiết giao dịch | Ai trả, lúc nào, tx hash, **phí gas của giao dịch (do khách trả, tính bằng USDC)**, và **thời gian từ lúc bấm trả đến khi final**. |
+| Create invoice | Enter an amount (USDC) and a short description. The system mints an `invoiceId` and a payment link. **No gas, no signature required.** |
+| POS screen | Full-screen page: large QR, large amount. Live-updating: waiting → **PAID** with a sound. This is the heart of the demo. |
+| Dashboard | Invoice list (pending / paid / expired), total revenue, wallet USDC balance, ArcScan link per transaction. |
+| Payment detail | Who paid, when, tx hash, **the transaction's gas fee (paid by the customer, denominated in USDC)**, and **time from tap-to-pay to finality**. |
 
-### 3.2. Customer (người mua)
+### 3.2. Customer
 
-**Không có tài khoản và không bao giờ cần tạo.** Họ ghé qua một lần. Mọi ma sát ở đây là ma sát chết người.
+**No account, and never needs one.** They pass through once. Any friction here is fatal friction.
 
-1. Quét QR bằng camera điện thoại (không cần app riêng) → mở trang checkout. Trang hiện: trả cho ai, bao nhiêu, cho món gì.
-2. Connect ví. Nếu ví chưa có mạng Arc → nút thêm mạng một chạm (`wallet_addEthereumChain`). Nếu chưa có USDC testnet → nút dẫn tới faucet Circle.
-3. Bấm "Trả 5.00 USDC" → ký **đúng một** transaction → màn hình thành công + link explorer.
+1. Scan the QR with the phone camera (no dedicated app) → checkout page opens, showing who they're paying, how much, and for what.
+2. Connect wallet. If the wallet lacks the Arc network → one-tap add via `wallet_addEthereumChain`. If they hold no testnet USDC → a button straight to Circle's faucet.
+3. Tap "Pay 5.00 USDC" → sign **exactly one** transaction → success screen with an explorer link.
 
-**Không approve token. Không cần giữ ETH để trả gas. Không đổi token.** Đây là điều phải hiện lên rõ ràng trên UI, không chỉ nằm trong slide.
+**No token approval. No ETH needed for gas. No token swap.** This must be visible on the UI, not buried in a slide.
 
-### 3.3. Cố tình KHÔNG có trong MVP
+### 3.3. Deliberately NOT in the MVP
 
-Không nhân viên/phân quyền, không đa cửa hàng, không hoàn tiền, không thanh toán định kỳ, không fiat on-ramp, không admin platform.
+No staff accounts or roles, no multi-store, no refunds, no recurring payments, no fiat on-ramp, no platform admin.
 
-Hai thứ được ưu tiên gắn thêm **nếu còn thời gian** (thiết kế chừa chỗ, nhưng không build): refund on-chain, và tự động đẩy doanh thu nhàn rỗi sang **USYC** để sinh lãi. Lưu ý USYC có contract `USYC Entitlements` — gần như chắc chắn cần whitelist, phải xác minh trước khi cam kết.
+Two extensions are pre-approved **if time allows** (the design leaves room, but they will not be built): on-chain refunds, and auto-sweeping idle revenue into **USYC** to earn yield. Note that USYC has a `USYC Entitlements` contract — it almost certainly requires whitelisting, which must be verified before committing to it.
 
 ---
 
 ## 4. Smart contract — `PaymentRouter`
 
-### 4.1. Quyết định: stateless router
+### 4.1. Decision: a stateless router
 
-Hoá đơn **không** được đăng ký on-chain trước. Cách "đúng sách" (merchant gọi `createInvoice()` rồi khách gọi `pay()`) sẽ bắt thu ngân mở ví và ký một transaction cho mỗi ly cà phê — không ai làm vậy, và nó buộc merchant phải luôn có USDC chỉ để tạo hoá đơn.
+Invoices are **not** registered on-chain up front. The textbook approach (merchant calls `createInvoice()`, then the customer calls `pay()`) forces a cashier to open their wallet and sign a transaction for every cup of coffee. Nobody will do that, and it forces the merchant to always hold USDC just to create invoices.
 
-Thay vào đó: hoá đơn sống trong database, và khách mang theo `(invoiceId, merchant, amount)` trong calldata khi trả tiền.
+Instead: invoices live in the database, and the customer carries `(invoiceId, merchant, amount)` in calldata when paying.
 
-**Hệ quả:** merchant **không bao giờ ký gì và không tốn một xu gas nào**. Tạo hoá đơn chỉ là một dòng `INSERT`. Toàn bộ chi phí on-chain do khách trả — đúng như ngoài đời.
+**Consequence:** the merchant **never signs anything and never spends a cent on gas.** Creating an invoice is a single `INSERT`. The customer bears all on-chain cost — exactly as in the physical world.
 
-### 4.2. Lỗ hổng của stateless và cách chặn
+### 4.2. The stateless vulnerability, and the fix
 
-Nếu contract chống trùng bằng `paid[invoiceId]`, kẻ phá hoại có thể gọi `pay(invoiceId_của_bạn, ví_hắn, 0.01 USDC)`:
-- Hoá đơn 500 USDC bị đánh dấu "đã trả" trên chain với giá 1 xu.
-- Khi khách thật trả tiền, transaction **revert** vì "đã thanh toán rồi".
-- Kẻ tấn công vô hiệu hoá được mọi hoá đơn với chi phí gần bằng 0.
+If the contract deduplicated on `paid[invoiceId]`, a griefer could call `pay(your_invoiceId, their_wallet, 0.01 USDC)`:
 
-**Cách chặn:** khoá chống trùng không phải `invoiceId`, mà là `keccak256(invoiceId, merchant, amount)`.
+- Your 500 USDC invoice is marked "paid" on-chain for one cent.
+- When the real customer pays, their transaction **reverts** with "already paid".
+- The attacker neutralizes any invoice for near-zero cost.
 
-Kẻ phá hoại trả sai số tiền sẽ sinh ra một `key` hoàn toàn khác — hoá đơn thật vẫn trả được bình thường, hắn chỉ tự đốt tiền của mình. Và backend **chỉ tin event nào khớp cả ba trường với database** (mục 6.3), nên event rác bị vứt bỏ.
+**The fix:** the dedup key is not `invoiceId`, but `keccak256(invoiceId, merchant, amount)`.
 
-### 4.3. Mã nguồn
+A griefer paying the wrong amount now produces a completely different `key` — the real invoice still settles normally, and they have only burned their own money. The backend, in turn, **only trusts events that match all three fields against the database** (section 6.3), so the junk event is discarded.
+
+### 4.3. Source
 
 ```solidity
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-/// @notice Định tuyến thanh toán USDC native trên Arc và phát event để đối soát.
-/// @dev Contract không giữ tiền: nhận bao nhiêu chuyển thẳng cho merchant bấy nhiêu.
-///      Không owner, không upgrade, không hàm rút tiền.
+/// @notice Routes native USDC payments on Arc and emits events for reconciliation.
+/// @dev The contract never holds funds: whatever comes in is forwarded to the merchant
+///      in the same transaction. No owner, no upgrade path, no withdrawal function.
 contract PaymentRouter {
-    /// @dev amount tính bằng 18 decimals (native USDC / msg.value).
+    /// @dev amount is denominated in 18 decimals (native USDC / msg.value).
     event InvoicePaid(
         bytes32 indexed invoiceId,
         address indexed merchant,
@@ -118,8 +119,8 @@ contract PaymentRouter {
     );
 
     /// @dev key = keccak256(invoiceId, merchant, amount).
-    ///      Khoá theo cả ba trường để một khoản trả sai số tiền không thể
-    ///      chặn khoản trả đúng của cùng invoiceId.
+    ///      Keyed on all three fields so that a payment with the wrong amount
+    ///      cannot block the correct payment for the same invoiceId.
     mapping(bytes32 => bool) public settled;
 
     error AlreadySettled();
@@ -143,34 +144,34 @@ contract PaymentRouter {
 }
 ```
 
-### 4.4. Tính chất an toàn
+### 4.4. Safety properties
 
-- **Chống reentrancy:** `settled[key] = true` được ghi **trước** khi chuyển tiền (checks-effects-interactions). Merchant dù là contract độc hại cũng không reentrancy được.
-- **Không giữ được tiền của ai:** không owner, không upgrade, không hàm rút. Toàn bộ `msg.value` được forward ngay trong cùng transaction.
-- **Địa chỉ zero:** Arc revert khi chuyển value tới `0x0`; ta chặn sớm bằng `InvalidMerchant` để lỗi rõ ràng hơn.
+- **Reentrancy-safe:** `settled[key] = true` is written **before** the transfer (checks-effects-interactions). A malicious merchant contract cannot re-enter.
+- **Cannot custody anyone's funds:** no owner, no upgrade, no withdrawal function. All of `msg.value` is forwarded within the same transaction.
+- **Zero address:** Arc reverts on native transfers to `0x0`; we reject early with `InvalidMerchant` so the failure is legible.
 
-### 4.5. Đánh đổi đã chốt: forward, không escrow
+### 4.5. Settled trade-off: forward, not escrow
 
-Contract chuyển thẳng tiền cho merchant thay vì giữ làm escrow.
+The contract forwards funds straight to the merchant rather than escrowing them.
 
-- **Được:** "tiền vào thẳng ví bạn trong 0.5 giây, không qua trung gian nào" — luận điểm mạnh, và contract không thể bị rút ruột.
-- **Mất:** không refund on-chain được (muốn refund thì merchant tự chuyển ngược lại).
+- **Gain:** "your money lands in your wallet in 0.5 seconds, with no intermediary" — a strong thesis, and the contract cannot be drained.
+- **Cost:** no on-chain refunds (a refund means the merchant sends funds back manually).
 
-MVP đã thống nhất không có refund, nên đánh đổi này là thuần lợi.
+The MVP already excludes refunds, so this trade-off is pure upside.
 
 ---
 
-## 5. Quy ước decimals (BẮT BUỘC)
+## 5. Decimals convention (MANDATORY)
 
-Đây là nguồn bug nguy hiểm nhất của dự án. Xử lý bằng **kỷ luật**, không bằng sự cẩn thận.
+This is the most dangerous source of bugs in the project. It is handled with **discipline**, not with care.
 
-| Tầng | Đơn vị | Ví dụ (5 USDC) |
+| Layer | Unit | Example (5 USDC) |
 |---|---|---|
-| Database, mọi API, mọi UI | số nguyên **6 decimals** (kiểu "cents" của Stripe) | `5000000` |
-| Mọi thứ chạm vào chain | `bigint` **18 decimals** | `5000000000000000000n` |
-| Contract | chỉ biết `msg.value` (18 decimals) | — |
+| Database, all APIs, all UI | integer, **6 decimals** (Stripe-style "cents") | `5000000` |
+| Anything touching the chain | `bigint`, **18 decimals** | `5000000000000000000n` |
+| Contract | only knows `msg.value` (18 decimals) | — |
 
-**Quy đổi chỉ được phép xảy ra trong đúng một file: `web/lib/usdc.ts`.**
+**Conversion may occur in exactly one file: `web/lib/usdc.ts`.**
 
 ```ts
 export const USDC_SCALE = 10n ** 12n; // 18 - 6
@@ -180,19 +181,19 @@ export function fromNative(wei: bigint): bigint  { return wei / USDC_SCALE; }
 export function formatUsdc(amount6: bigint): string { /* "5.00" */ }
 ```
 
-**Không component, route, hay hook nào khác được nhân/chia với `1e12`.** Vi phạm quy ước này là lỗi review chặn merge.
+**No other component, route, or hook may multiply or divide by `1e12`.** Violating this convention is a merge-blocking review finding.
 
 ---
 
-## 6. Kiến trúc và luồng dữ liệu
+## 6. Architecture and data flow
 
-### 6.1. Nguyên tắc: không có indexer chạy thường trực
+### 6.1. Principle: no long-running indexer
 
-Kiến trúc thông thường cần một process Node ôm WebSocket, nghe log, ghi DB. Nó đúng, nhưng là **một server nữa phải deploy và giữ sống — và nó sẽ chết đúng lúc demo**.
+The conventional architecture needs a Node process holding a WebSocket, listening for logs and writing to the database. It is correct — but it is **one more server to deploy and keep alive, and it will die exactly during the demo**.
 
-Arc cho lối thoát đẹp hơn nhờ finality tức thì: **server có thể tự kiểm chứng một thanh toán chỉ bằng một lời gọi RPC.** Toàn bộ hệ thống chạy trên Vercel, không có process nào phải giữ sống, mà vẫn **không tin client một chữ nào**.
+Arc offers a cleaner escape thanks to instant finality: **the server can verify a payment on its own with a single RPC call.** The whole system runs on Vercel with no process to keep alive, while **trusting the client with nothing**.
 
-### 6.2. Luồng thanh toán
+### 6.2. Payment flow
 
 ```
 Merchant                    Server                     Chain                  Customer
@@ -201,115 +202,115 @@ Merchant                    Server                     Chain                  Cu
    │  (SIWE session)          ├─ INSERT invoice          │                       │
    │<──── payUrl + QR ────────┤   (pending)              │                       │
    │                          │                          │                       │
-   │  [màn hình POS]          │                          │                       │
+   │  [POS screen]            │                          │                       │
    │  ├─ poll GET /:id (400ms)│                          │                       │
-   │  └─ watch InvoicePaid ───┼─────────────────────────>│  (WSS, lọc invoiceId) │
+   │  └─ watch InvoicePaid ───┼─────────────────────────>│  (WSS, filter by id)  │
    │                          │                          │                       │
-   │                          │           quét QR ───────┼──────────────────────>│
+   │                          │          scan QR ────────┼──────────────────────>│
    │                          │<──── GET /api/invoices/:id (public) ─────────────┤
-   │                          │                          │<─── pay() 1 tx ───────┤
+   │                          │                          │<─── pay(), 1 tx ──────┤
    │                          │                          │                       │
    │                          │                          ├─ InvoicePaid event    │
-   │                          │                          ├─ tiền → ví merchant   │
+   │                          │                          ├─ funds → merchant     │
    │                          │                          │                       │
    │                          │<──── POST /:id/confirm { txHash } ───────────────┤
-   │                          │                          │      (gợi ý, KHÔNG tin)
+   │                          │                          │      (a HINT, not trusted)
    │                          ├─ eth_getTransactionReceipt(txHash) ──>│          │
-   │                          ├─ XÁC MINH (mục 6.3)      │                       │
+   │                          ├─ VERIFY (section 6.3)    │                       │
    │                          ├─ UPDATE status = paid    │                       │
    │                          │                          │                       │
-   │<── "ĐÃ THANH TOÁN" ──────┤                          │                       │
+   │<──────── "PAID" ─────────┤                          │                       │
 ```
 
-**Ba đường phát hiện thanh toán, độc lập nhau, cùng đổ về một hàm xác minh:**
+**Three independent detection paths, all funnelling into one verifier:**
 
-1. **Tab của khách** báo `txHash` sau khi có receipt (nhanh nhất, luôn có trong luồng bình thường).
-2. **Màn hình POS của merchant** tự lắng nghe event `InvoicePaid` qua WebSocket, lọc theo `invoiceId`. Đường này sống độc lập với tab của khách — khách tắt tab vẫn không sao. POS thấy event thì cũng gửi `txHash` về `/confirm`.
-3. **Vercel Cron mỗi phút** quét hoá đơn `pending`, gọi `eth_getLogs` lọc theo topic `invoiceId`, xác minh y hệt. Lưới an toàn cuối cùng cho trường hợp cả hai tab đều đã đóng.
+1. **The customer's tab** reports `txHash` once it has a receipt (fastest; always present in the happy path).
+2. **The merchant's POS screen** independently watches `InvoicePaid` over WebSocket, filtered by `invoiceId`. This path survives the customer closing their tab. When the POS sees the event, it also posts the `txHash` to `/confirm`.
+3. **A Vercel Cron, once a minute,** sweeps `pending` invoices, calls `eth_getLogs` filtered by the `invoiceId` topic, and runs the same verification. This is the final safety net for when both tabs are gone.
 
-Cái nào thấy trước thì kích hoạt trước. Hàm xác minh **idempotent**, nên chạy chồng nhau vô hại.
+Whichever path fires first wins. The verifier is **idempotent**, so overlapping paths are harmless.
 
-### 6.3. Hàm xác minh — nguồn sự thật duy nhất
+### 6.3. The verifier — the single source of truth
 
-`POST /api/invoices/:id/confirm { txHash }` — server coi `txHash` là **gợi ý**, không phải bằng chứng, và tự đi hỏi chain:
+`POST /api/invoices/:id/confirm { txHash }` — the server treats `txHash` as a **hint**, never as proof, and goes to the chain itself:
 
-1. `eth_getTransactionReceipt(txHash)` → phải tồn tại và `status === 'success'`.
-2. Receipt phải có log phát ra từ **đúng địa chỉ `PaymentRouter`**.
-3. Decode log `InvoicePaid`, đối chiếu **cả ba** với bản ghi DB:
-   - `invoiceId` khớp hoá đơn đang xét,
-   - `merchant` đúng bằng ví merchant trong DB,
-   - `amount` đúng bằng `toNative(amount6)` trong DB — **so sánh bằng tuyệt đối, không cho phép sai lệch**.
-4. Chỉ khi cả ba khớp → `UPDATE status = 'paid'`, lưu `txHash`, `payer`, `blockNumber`, `paidAt`, `gasFee`.
-5. Nếu hoá đơn đã `paid` → trả về thành công, không ghi lại (idempotent).
+1. `eth_getTransactionReceipt(txHash)` → must exist and have `status === 'success'`.
+2. The receipt must contain a log emitted by the **exact `PaymentRouter` address**.
+3. Decode the `InvoicePaid` log and check **all three** fields against the database row:
+   - `invoiceId` matches this invoice,
+   - `merchant` equals the merchant's wallet in the database,
+   - `amount` equals `toNative(amount6)` from the database — **exact equality, no tolerance**.
+4. Only if all three match → `UPDATE status = 'paid'`, storing `txHash`, `payer`, `blockNumber`, `paidAt`, `gasFee`.
+5. If the invoice is already `paid` → return success without rewriting (idempotent).
 
-Client có thể nói dối thoải mái, không ăn thua gì. Sự thật nằm ở chain, và server luôn tự đi hỏi chain.
+The client may lie freely; it changes nothing. Truth lives on the chain, and the server always asks the chain.
 
-### 6.4. Vòng đời hoá đơn
+### 6.4. Invoice lifecycle
 
-Ba trạng thái, không hơn:
+Three states, no more:
 
 ```
-pending ──(xác minh thành công)──> paid
+pending ──(verification succeeds)──> paid
    │
-   └──(quá expiresAt, 15 phút)──> expired
+   └──(past expiresAt, 15 min)──────> expired
 ```
 
-`expired` được suy ra từ trường `expiresAt` khi đọc, **không cần job xoá**.
+`expired` is **derived from the `expiresAt` column at read time** — no cleanup job needed.
 
-**Tình huống hở đã xử lý:** nếu khách trả tiền vào hoá đơn đã `expired`, tiền vẫn về ví merchant thật (contract không biết gì về hạn). Server khi xác minh **vẫn chuyển hoá đơn sang `paid`** kèm cờ `wasLate = true`. Thà ghi nhận muộn còn hơn để tiền vào mà hệ thống nói "chưa trả" — đây đúng là kiểu tình huống làm vỡ demo hackathon.
+**A handled edge case:** if a customer pays an already-`expired` invoice, the funds still reach the merchant's wallet (the contract knows nothing about expiry). On verification, the server **still marks the invoice `paid`**, with a `wasLate = true` flag. Recording a late payment beats taking someone's money while the system says "unpaid" — and this is precisely the class of edge case that breaks hackathon demos.
 
 ---
 
-## 7. Mô hình dữ liệu
+## 7. Data model
 
 ```ts
 // db/schema.ts — Drizzle + Postgres (Neon)
 
 merchants {
-  address     text primary key      // lowercase, checksum khi hiển thị
+  address     text primary key      // lowercase; checksummed only for display
   name        text
   createdAt   timestamptz
 }
 
 invoices {
-  id          text primary key      // invoiceId: 32 bytes hex, sinh ngẫu nhiên
+  id          text primary key      // invoiceId: random 32-byte hex
   merchant    text references merchants(address)
-  amount6     bigint                // 6 decimals — xem mục 5
+  amount6     bigint                // 6 decimals — see section 5
   description text
-  status      text                  // 'pending' | 'paid'   (expired suy ra từ expiresAt)
+  status      text                  // 'pending' | 'paid'  (expired is derived from expiresAt)
   createdAt   timestamptz
-  expiresAt   timestamptz           // createdAt + 15 phút
+  expiresAt   timestamptz           // createdAt + 15 min
 
-  // điền khi xác minh thành công
+  // populated on successful verification
   txHash      text
   payer       text
   blockNumber bigint
   paidAt      timestamptz
-  gasFee      bigint                // 18 decimals, để khoe "phí trả bằng USDC"
+  gasFee      bigint                // 18 decimals — powers the "fee paid in USDC" story
   wasLate     boolean default false
 }
 ```
 
-`invoiceId` sinh ngẫu nhiên 32 bytes (không đoán được), dùng trực tiếp làm `bytes32` trong calldata.
+`invoiceId` is a random 32-byte value (unguessable), used directly as the `bytes32` in calldata.
 
 ---
 
 ## 8. API
 
-| Endpoint | Auth | Mô tả |
+| Endpoint | Auth | Description |
 |---|---|---|
-| `POST /api/auth/siwe` | — | Xác thực SIWE, tạo session merchant |
-| `POST /api/invoices` | SIWE | Tạo hoá đơn `{ amount6, description }` → `{ id, payUrl }` |
-| `GET /api/invoices/:id` | public | Đọc hoá đơn (merchant, amount, description, status). Dùng bởi cả trang checkout lẫn POS. |
-| `POST /api/invoices/:id/confirm` | public | Nhận `{ txHash }` (gợi ý) → chạy xác minh mục 6.3 |
-| `GET /api/invoices` | SIWE | Danh sách hoá đơn của merchant + tổng doanh thu |
-| `GET /api/cron/reconcile` | Cron secret | Đối soát hoá đơn pending qua `eth_getLogs` |
+| `POST /api/auth/siwe` | — | SIWE verification, creates the merchant session |
+| `POST /api/invoices` | SIWE | Create invoice `{ amount6, description }` → `{ id, payUrl }` |
+| `GET /api/invoices/:id` | public | Read an invoice (merchant, amount, description, status). Used by both the checkout page and the POS screen. |
+| `POST /api/invoices/:id/confirm` | public | Accepts `{ txHash }` (a hint) → runs the verifier from section 6.3 |
+| `GET /api/invoices` | SIWE | The merchant's invoice list plus total revenue |
+| `GET /api/cron/reconcile` | Cron secret | Reconciles pending invoices via `eth_getLogs` |
 
-`GET /api/invoices/:id` để public là có chủ ý — khách không có tài khoản, và hoá đơn chỉ lộ ra khi biết `invoiceId` ngẫu nhiên 32 bytes.
+`GET /api/invoices/:id` is public by design — the customer has no account, and an invoice is only reachable by knowing its random 32-byte `invoiceId`.
 
 ---
 
-## 9. Cấu trúc repo và stack
+## 9. Repository layout and stack
 
 ```
 arcpay/
@@ -317,11 +318,11 @@ arcpay/
 │  ├─ src/PaymentRouter.sol
 │  ├─ test/PaymentRouter.t.sol
 │  └─ script/Deploy.s.sol
-└─ web/                             Next.js (App Router) — deploy Vercel
+└─ web/                             Next.js (App Router) — deployed on Vercel
    ├─ app/
-   │  ├─ dashboard/                 merchant: hoá đơn + doanh thu
-   │  ├─ pos/[id]/                  merchant: QR toàn màn hình
-   │  ├─ pay/[id]/                  customer: checkout ← trái tim demo
+   │  ├─ dashboard/                 merchant: invoices + revenue
+   │  ├─ pos/[id]/                  merchant: full-screen QR
+   │  ├─ pay/[id]/                  customer: checkout ← heart of the demo
    │  └─ api/
    │     ├─ auth/siwe/
    │     ├─ invoices/
@@ -329,81 +330,81 @@ arcpay/
    │     └─ cron/reconcile/
    ├─ lib/
    │  ├─ arc.ts                     chain config, viem clients (HTTP + WSS)
-   │  ├─ usdc.ts                    ← DUY NHẤT được quy đổi decimals
-   │  ├─ router.ts                  ABI + địa chỉ PaymentRouter
-   │  └─ verify.ts                  hàm xác minh mục 6.3 (dùng chung confirm + cron)
+   │  ├─ usdc.ts                    ← THE ONLY place decimals are converted
+   │  ├─ router.ts                  PaymentRouter ABI + address
+   │  └─ verify.ts                  the section 6.3 verifier (shared by confirm + cron)
    └─ db/schema.ts                  Drizzle + Postgres (Neon)
 ```
 
-| Thành phần | Lựa chọn | Lý do |
+| Component | Choice | Rationale |
 |---|---|---|
-| Contract | **Foundry** | Test viết bằng Solidity, chạy nhanh; Arc docs khuyên dùng |
-| Web | **Next.js App Router** trên Vercel | Không cần server thường trực |
-| Chain | **viem + wagmi** | `viem` đã có Arc Testnet dựng sẵn — cần **xác minh lại ở bước đầu triển khai** |
-| DB | **Neon Postgres** (Vercel Marketplace) | Serverless, không phải nuôi |
-| Auth | **SIWE** | Ví là tài khoản, không mật khẩu |
+| Contract | **Foundry** | Tests written in Solidity, fast; recommended by Arc docs |
+| Web | **Next.js App Router** on Vercel | No long-running server required |
+| Chain | **viem + wagmi** | Docs state `viem` ships Arc Testnet as a built-in chain — **must be verified in the first implementation step** |
+| DB | **Neon Postgres** (Vercel Marketplace) | Serverless, nothing to babysit |
+| Auth | **SIWE** | The wallet is the account; no passwords |
 
-`lib/verify.ts` được dùng chung bởi `/confirm` và `/cron/reconcile` — chỉ có **một** cài đặt của logic xác minh, không nhân bản.
+`lib/verify.ts` is shared by `/confirm` and `/cron/reconcile` — there is exactly **one** implementation of the verification logic, never duplicated.
 
 ---
 
-## 10. Kế hoạch kiểm thử
+## 10. Test plan
 
 ### 10.1. Contract (Foundry)
 
-| Test | Kỳ vọng |
+| Test | Expectation |
 |---|---|
-| Trả đúng | Tiền tới merchant, event `InvoicePaid` đúng cả 5 trường |
-| `msg.value` ≠ `amount` | Revert `AmountMismatch` |
-| Trả trùng đúng bộ ba | Revert `AlreadySettled` |
-| **Kẻ phá hoại trả sai số tiền KHÔNG chặn được hoá đơn thật** | Hoá đơn thật vẫn trả thành công — **test quan trọng nhất** |
-| Merchant là contract độc hại reentrancy | Không rút được tiền thứ hai |
-| `merchant == address(0)` | Revert `InvalidMerchant` |
+| Correct payment | Funds reach the merchant; `InvoicePaid` carries all five fields correctly |
+| `msg.value` ≠ `amount` | Reverts with `AmountMismatch` |
+| Replay of the same triple | Reverts with `AlreadySettled` |
+| **A griefer paying the wrong amount does NOT block the real invoice** | The real payment still succeeds — **the most important test in the suite** |
+| Malicious merchant contract attempts reentrancy | Cannot extract a second payment |
+| `merchant == address(0)` | Reverts with `InvalidMerchant` |
 
 ### 10.2. Backend
 
-| Test | Kỳ vọng |
+| Test | Expectation |
 |---|---|
-| `confirm` với txHash bịa | Từ chối |
-| txHash của hoá đơn **khác** | Từ chối |
-| txHash đúng nhưng số tiền lệch | Từ chối |
-| Log phát từ contract khác `PaymentRouter` | Từ chối |
-| `confirm` hai lần | Chỉ ghi nhận một lần (idempotent) |
-| Trả sau khi `expired` | `paid` + `wasLate = true` |
+| `confirm` with a fabricated txHash | Rejected |
+| txHash belonging to a **different** invoice | Rejected |
+| Valid txHash but mismatched amount | Rejected |
+| Log emitted by a contract other than `PaymentRouter` | Rejected |
+| `confirm` called twice | Recorded once (idempotent) |
+| Payment arriving after expiry | `paid` with `wasLate = true` |
 
-### 10.3. End-to-end (trên Arc testnet thật)
+### 10.3. End-to-end (against real Arc testnet)
 
-Deploy contract thật lên Arc testnet, chạy script trả tiền thật, kiểm tra hoá đơn chuyển sang `paid`.
+Deploy the real contract to Arc testnet, run a script that makes a real payment, and assert the invoice flips to `paid`.
 
-**Đo và ghi lại:** thời gian từ lúc bấm "Trả" đến lúc transaction final, và phí gas thực tế (bằng USDC). Hai con số này lên slide.
-
----
-
-## 11. Tiêu chí thành công của MVP
-
-1. Trên Arc testnet thật: tạo hoá đơn → quét QR bằng điện thoại → trả → màn hình POS đổi trạng thái, **đo được dưới 1 giây**.
-2. Khách hoàn tất thanh toán **chỉ với USDC trong ví** — không giữ token thứ hai, không approve, một chữ ký duy nhất.
-3. Server **không tin client**: mọi cách giả mạo trong mục 10.2 đều bị từ chối.
-4. Merchant **không tốn gas** và không ký gì trong toàn bộ vòng đời hoá đơn.
-5. UI hiện rõ **phí gas trả bằng USDC** và **thời gian tới final** — bằng chứng sống cho luận điểm "vì sao là Arc".
+**Measure and record:** time from tapping "Pay" to finality, and the actual gas fee (in USDC). Both numbers go on the slide.
 
 ---
 
-## 12. Rủi ro đã biết
+## 11. MVP success criteria
 
-| Rủi ro | Mức | Xử lý |
+1. On real Arc testnet: create invoice → scan QR with a phone → pay → the POS screen flips, **measurably in under one second**.
+2. The customer completes payment **holding only USDC** — no second token, no approval, a single signature.
+3. The server **trusts no client**: every forgery in section 10.2 is rejected.
+4. The merchant **pays no gas** and signs nothing across the entire invoice lifecycle.
+5. The UI surfaces **the gas fee denominated in USDC** and **time-to-finality** — live evidence for the "why Arc" thesis.
+
+---
+
+## 12. Known risks
+
+| Risk | Level | Mitigation |
 |---|---|---|
-| `viem` chưa thật sự có Arc Testnet dựng sẵn | Trung bình | Xác minh ngay bước đầu; nếu chưa có, tự định nghĩa chain (~10 dòng) |
-| Nhầm 18 vs 6 decimals | **Cao** | Quy ước mục 5, cô lập trong `lib/usdc.ts`, có test |
-| Ví di động không hỗ trợ mạng Arc | Trung bình | QR trỏ tới **URL checkout**, không phải EIP-681 — trang tự gọi `wallet_addEthereumChain` |
-| RPC testnet chập chờn lúc demo | Trung bình | Cấu hình RPC dự phòng (Blockdaemon / dRPC / QuickNode) |
-| USYC bị gate bởi Entitlements | Thấp (đã ngoài scope) | Chỉ là phần mở rộng, xác minh trước khi cam kết |
+| `viem` may not actually ship Arc Testnet built in | Medium | Verify in the first step; if absent, define the chain by hand (~10 lines) |
+| Confusing 18- vs 6-decimal values | **High** | Section 5 convention, isolated in `lib/usdc.ts`, covered by tests |
+| Mobile wallets lacking Arc network support | Medium | The QR encodes a **checkout URL**, not EIP-681 — the page calls `wallet_addEthereumChain` itself |
+| Testnet RPC flakiness during the demo | Medium | Configure fallback RPCs (Blockdaemon / dRPC / QuickNode) |
+| USYC gated behind Entitlements | Low (already out of scope) | Extension only; verify before committing |
 
 ---
 
-## 13. Ngoài phạm vi (theo thứ tự ưu tiên nếu còn thời gian)
+## 13. Out of scope (priority order if time allows)
 
-1. **Refund on-chain** — cần đổi contract sang mô hình escrow.
-2. **Doanh thu nhàn rỗi tự sinh lãi qua USYC** — cần xác minh Entitlements whitelist trước.
-3. **Nạp tiền crosschain qua CCTP/Gateway** — khách trả từ Base/Ethereum.
-4. **Gasless bằng EIP-7702** — Arc có hỗ trợ set-code transaction.
+1. **On-chain refunds** — requires switching the contract to an escrow model.
+2. **Idle revenue auto-earning yield via USYC** — verify the Entitlements whitelist first.
+3. **Crosschain funding via CCTP / Gateway** — let customers pay from Base or Ethereum.
+4. **Gasless payments via EIP-7702** — Arc supports set-code transactions.
