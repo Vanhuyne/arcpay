@@ -53,6 +53,9 @@ describe('usdc decimals boundary', () => {
   it('formatUsdc rejects negative amounts', () => {
     expect(() => formatUsdc(-1n)).toThrow();
     expect(() => formatUsdc(-1_500_000n)).toThrow();
+    // A negative whole number has no fractional remainder, so it would slip past a
+    // guard placed after the frac === 0n short-circuit. Pins the guard's position.
+    expect(() => formatUsdc(-2_000_000n)).toThrow();
   });
 
   it('formatUsdc(0n) still returns 0.00', () => {
