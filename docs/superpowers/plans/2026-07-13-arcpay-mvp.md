@@ -78,8 +78,11 @@ cd /Users/vanhuy/Desktop/arc
 mkdir -p contracts/src contracts/test contracts/script
 printf 'packages:\n  - "web"\n' > pnpm-workspace.yaml
 pnpm create next-app@latest web --ts --app --tailwind --eslint --src-dir=false --import-alias="@/*" --use-pnpm --yes
-cd web && pnpm add viem@^2.55.1 wagmi @tanstack/react-query && pnpm add -D vitest
+cd web && pnpm add viem@^2.55.1 wagmi @tanstack/react-query && pnpm add -D vitest tsx
 ```
+
+`tsx` is a dev dependency because several verification steps in this plan run one-off
+TypeScript scripts against the live testnet (`pnpm tsx -e "…"`).
 
 - [ ] **Step 2: Write the failing test**
 
@@ -189,7 +192,9 @@ This is the highest-risk code in the project and the smallest. It gets written f
 - Test: `web/test/usdc.test.ts`
 
 **Interfaces:**
-- Produces: `USDC_SCALE: bigint`, `toNative(amount6: bigint): bigint`, `fromNative(wei: bigint): bigint`, `formatUsdc(amount6: bigint): string`, `parseUsdc(input: string): bigint` from `web/lib/usdc.ts`.
+- Produces: `USDC_SCALE: bigint`, `toNative(amount6: bigint): bigint`, `fromNative(wei: bigint): bigint`, `formatUsdc(amount6: bigint): string`, `formatNativeUsdc(wei: bigint, precision?: number): string`, `parseUsdc(input: string): bigint` from `web/lib/usdc.ts`.
+
+`formatNativeUsdc` exists so that UI code displaying an 18-decimal value (the gas fee) never has to divide by `1e18` itself. Without it, the dashboard would have to do the conversion inline — which the Global Constraints forbid.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -197,7 +202,7 @@ Create `web/test/usdc.test.ts`:
 
 ```ts
 import { describe, expect, it } from 'vitest';
-import { formatUsdc, fromNative, parseUsdc, toNative, USDC_SCALE } from '@/lib/usdc';
+import { formatNativeUsdc, formatUsdc, fromNative, parseUsdc, toNative, USDC_SCALE } from '@/lib/usdc';
 
 describe('usdc decimals boundary', () => {
   it('scales by exactly 10^12 (18 - 6)', () => {
@@ -224,6 +229,13 @@ describe('usdc decimals boundary', () => {
     expect(formatUsdc(5_000_000n)).toBe('5.00');
     expect(formatUsdc(1_234_567n)).toBe('1.234567');
     expect(formatUsdc(0n)).toBe('0.00');
+  });
+
+  it('formats an 18-decimal native amount (the gas fee) without losing precision', () => {
+    // The dashboard must never do this division itself with Number().
+    expect(formatNativeUsdc(10_000_000_000_000_000n)).toBe('0.0100');
+    expect(formatNativeUsdc(8_432_000_000_000_000n)).toBe('0.0084');
+    expect(formatNativeUsdc(0n)).toBe('0.0000');
   });
 
   it('parses user input into 6-decimal integers', () => {
@@ -282,6 +294,20 @@ export function formatUsdc(amount6: bigint): string {
   return `${whole}.${frac.toString().padStart(6, '0').replace(/0+$/, '').padEnd(2, '0')}`;
 }
 
+/**
+ * Format an 18-decimal native amount (gas fees) for display, e.g. "0.0084".
+ * UI code must call this instead of dividing by 1e18 — Number() on an 18-decimal
+ * bigint silently loses precision, which is the exact class of bug this module exists
+ * to prevent.
+ */
+export function formatNativeUsdc(wei: bigint, precision = 4): string {
+  const scale = 10n ** BigInt(NATIVE_DECIMALS - precision);
+  const scaled = wei / scale;
+  const whole = scaled / 10n ** BigInt(precision);
+  const frac = scaled % 10n ** BigInt(precision);
+  return `${whole}.${frac.toString().padStart(precision, '0')}`;
+}
+
 /** User input -> 6-decimal integer. Throws on anything we refuse to guess about. */
 export function parseUsdc(input: string): bigint {
   const trimmed = input.trim();
@@ -298,7 +324,7 @@ export function parseUsdc(input: string): bigint {
 - [ ] **Step 4: Run the test and confirm it passes**
 
 Run: `cd web && pnpm vitest run test/usdc.test.ts`
-Expected: PASS — 8 tests.
+Expected: PASS — 9 tests.
 
 - [ ] **Step 5: Commit**
 
@@ -2001,7 +2027,7 @@ Create `web/app/dashboard/dashboard.tsx`:
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { txUrl } from '@/lib/arc';
-import { formatUsdc } from '@/lib/usdc';
+import { formatNativeUsdc, formatUsdc } from '@/lib/usdc';
 import type { PublicInvoice } from '@/lib/dto';
 
 export function Dashboard({ merchant }: { merchant: string }) {
@@ -2085,7 +2111,7 @@ export function Dashboard({ merchant }: { merchant: string }) {
               </span>
               {inv.txHash && (
                 <a className="block text-xs underline" href={txUrl(inv.txHash)} target="_blank" rel="noreferrer">
-                  {inv.gasFee ? `gas ${(Number(inv.gasFee) / 1e18).toFixed(4)} USDC` : 'view tx'}
+                  {inv.gasFee ? `gas ${formatNativeUsdc(BigInt(inv.gasFee))} USDC` : 'view tx'}
                 </a>
               )}
             </div>
@@ -2206,6 +2232,12 @@ export const config: VercelConfig = {
 cd web && pnpm add -D @vercel/config
 vercel env add CRON_SECRET
 ```
+
+**Plan limitation:** Vercel's Hobby tier caps cron jobs at once per day; the
+once-a-minute schedule above needs a Pro project. This does not block the MVP — the
+reconciler is a safety net, not a detection path, and the route can always be invoked
+by hand (Step 3 does exactly that). If the project stays on Hobby, ship it with the
+daily schedule and say so in the README.
 
 - [ ] **Step 3: Verify the safety net actually catches a lost payment**
 
