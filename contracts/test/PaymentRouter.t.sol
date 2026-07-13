@@ -96,6 +96,23 @@ contract PaymentRouterTest is Test {
         assertEq(merchant.balance, AMOUNT, "real payment went through untouched");
     }
 
+    function test_RevertWhen_AmountIsZero() public {
+        vm.prank(payer);
+        vm.expectRevert(PaymentRouter.ZeroAmount.selector);
+        router.pay{value: 0}(INVOICE, merchant, 0);
+    }
+
+    /// This test proves the checks-effects-interactions ordering, not merely that
+    /// re-entrancy "fails somehow". `settled[key] = true` runs BEFORE the external
+    /// call to the merchant, so the nested `pay` call (same invoiceId/merchant/amount
+    /// triple) sees `settled[key] == true` and reverts with `AlreadySettled`, which
+    /// surfaces here as `ForwardFailed` on the outer call. If a regression ever moved
+    /// `settled[key] = true` to AFTER the external call (breaking CEI), the nested
+    /// payment would succeed instead, the merchant would receive funds twice, and
+    /// this test would fail — that is precisely the bug it exists to catch. It does
+    /// NOT exercise re-entry with a different (invoiceId, merchant, amount) triple,
+    /// which the dedup key would allow to settle independently; that is expected and
+    /// is not a gap this test claims to cover.
     function test_RevertWhen_MerchantReentersRouter() public {
         ReentrantMerchant evil = new ReentrantMerchant(router, INVOICE, AMOUNT);
         vm.deal(payer, 2 * AMOUNT);

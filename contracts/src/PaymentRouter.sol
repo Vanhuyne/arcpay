@@ -24,9 +24,11 @@ contract PaymentRouter {
     error AmountMismatch();
     error InvalidMerchant();
     error ForwardFailed();
+    error ZeroAmount();
 
     function pay(bytes32 invoiceId, address merchant, uint256 amount) external payable {
         if (merchant == address(0)) revert InvalidMerchant();
+        if (amount == 0) revert ZeroAmount(); // msg.value == amount is enforced below, so this also rejects msg.value == 0
         if (msg.value != amount) revert AmountMismatch();
 
         bytes32 key = keccak256(abi.encode(invoiceId, merchant, amount));
