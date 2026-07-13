@@ -1,1 +1,15 @@
 .superpowers/
+
+# dependencies
+node_modules/
+
+# env files
+.env*
+
+# misc
+.DS_Store
+
+# foundry
+contracts/out/
+contracts/cache/
+contracts/broadcast/

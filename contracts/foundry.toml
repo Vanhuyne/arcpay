@@ -1,0 +1,9 @@
+[profile.default]
+src = "src"
+test = "test"
+script = "script"
+out = "out"
+libs = ["lib"]
+
+[rpc_endpoints]
+arc_testnet = "https://rpc.testnet.arc.network"
