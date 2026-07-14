@@ -15,6 +15,8 @@ export type VerifyFailure =
 
 export type VerifyResult = { ok: true; alreadyPaid: boolean } | { ok: false; reason: VerifyFailure };
 
+type DecodedInvoicePaid = { invoiceId: Hex; merchant: Hex; payer: Hex; amount: bigint };
+
 /**
  * The single source of truth for "was this invoice paid?".
  *
@@ -46,7 +48,7 @@ export async function verifyPayment(
     (log) => log.address.toLowerCase() === ROUTER_ADDRESS.toLowerCase(),
   );
 
-  let decoded: { invoiceId: Hex; merchant: Hex; payer: Hex; amount: bigint } | null = null;
+  let decoded: DecodedInvoicePaid | null = null;
   for (const log of routerLogs) {
     try {
       const ev = decodeEventLog({
@@ -55,7 +57,7 @@ export async function verifyPayment(
         topics: log.topics,
         data: log.data,
       });
-      decoded = ev.args as typeof decoded;
+      decoded = ev.args;
       break;
     } catch {
       // not an InvoicePaid log — keep looking
