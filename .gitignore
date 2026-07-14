@@ -5,6 +5,7 @@ node_modules/
 
 # env files
 .env*
+!.env.example
 
 # misc
 .DS_Store
