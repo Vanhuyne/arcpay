@@ -384,7 +384,206 @@ body {
   to { opacity: 1; }
 }
 
+/* ---- Merchant console: dashboard + sign-in ---- */
+.console {
+  width: 100%;
+  max-width: 46rem;
+  margin: 0 auto;
+  padding: 2.5rem 1.5rem 4rem;
+}
+.console-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.wordmark {
+  font-weight: 700;
+  font-size: 1.25rem;
+  letter-spacing: -0.01em;
+  color: var(--paper);
+}
+.who {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--font-space-mono), monospace;
+  font-size: 0.82rem;
+  color: #9aa1b4;
+}
+.who .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--settle);
+  box-shadow: 0 0 0 3px rgba(18, 183, 106, 0.18);
+}
+
+.panel {
+  background: var(--ink-2);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 14px;
+}
+
+.revenue {
+  margin-top: 1.8rem;
+  padding: 1.6rem 1.6rem 1.7rem;
+}
+.revenue .label {
+  font-family: var(--font-space-mono), monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: #7b8296;
+}
+.revenue .figure {
+  margin-top: 0.6rem;
+  font-family: var(--font-space-mono), monospace;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  font-size: clamp(2.6rem, 8vw, 3.6rem);
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: var(--paper);
+}
+.revenue .figure .unit {
+  font-size: 0.3em;
+  letter-spacing: 0.12em;
+  color: #7b8296;
+  margin-left: 0.5rem;
+}
+
+/* Charge form — entering an amount on the register. */
+.charge {
+  margin-top: 1.4rem;
+  display: flex;
+  gap: 0.7rem;
+  flex-wrap: wrap;
+}
+.field {
+  background: var(--ink);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  color: var(--paper);
+  font: inherit;
+  padding: 0.85rem 0.9rem;
+}
+.field::placeholder { color: #5a6072; }
+.field:focus-visible {
+  outline: none;
+  border-color: var(--usdc);
+  box-shadow: 0 0 0 3px rgba(39, 117, 202, 0.28);
+}
+.field--amount {
+  width: 8rem;
+  font-family: var(--font-space-mono), monospace;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  text-align: right;
+}
+.field--desc { flex: 1; min-width: 11rem; }
+
+.charge-btn {
+  border: 0;
+  border-radius: 10px;
+  padding: 0.85rem 1.4rem;
+  font: inherit;
+  font-weight: 600;
+  color: #fff;
+  background: var(--usdc);
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.12s ease;
+  box-shadow: 0 10px 24px -14px rgba(39, 117, 202, 0.9);
+}
+.charge-btn:hover { background: var(--usdc-deep); transform: translateY(-1px); }
+.charge-btn:focus-visible { outline: 3px solid var(--usdc); outline-offset: 3px; }
+
+.charge-error {
+  margin-top: 0.6rem;
+  font-size: 0.82rem;
+  color: #ff8f7a;
+}
+
+/* Ledger */
+.ledger { margin-top: 2.2rem; list-style: none; }
+.ledger-empty {
+  margin-top: 2.2rem;
+  padding: 2.2rem;
+  text-align: center;
+  color: #7b8296;
+  font-size: 0.92rem;
+}
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.95rem 0.2rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+.row:last-child { border-bottom: 1px solid rgba(255, 255, 255, 0.07); }
+.row .amt {
+  font-family: var(--font-space-mono), monospace;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--paper);
+}
+.row .desc { margin-top: 0.15rem; font-size: 0.86rem; color: #8a91a4; }
+.row .right { text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 0.25rem; }
+
+.chip {
+  font-family: var(--font-space-mono), monospace;
+  font-size: 0.66rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+}
+.chip--paid { color: #7ff0b6; background: rgba(18, 183, 106, 0.16); }
+.chip--pending { color: #8fc0ff; background: rgba(39, 117, 202, 0.18); }
+.chip--expired { color: #97a0b3; background: rgba(255, 255, 255, 0.06); }
+
+.row .gas {
+  font-family: var(--font-space-mono), monospace;
+  font-size: 0.72rem;
+  color: #7b8296;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.row .gas:hover { color: #9aa1b4; }
+
+/* Sign-in card */
+.signin {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100dvh;
+  gap: 1.1rem;
+  text-align: center;
+  padding: 2rem;
+}
+.signin .wordmark { font-size: 2rem; }
+.signin .tagline { color: #9aa1b4; max-width: 22rem; }
+.signin .cta {
+  margin-top: 0.8rem;
+  border: 0;
+  border-radius: 10px;
+  padding: 0.95rem 1.6rem;
+  font: inherit;
+  font-weight: 600;
+  color: #fff;
+  background: var(--usdc);
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.12s ease;
+  box-shadow: 0 12px 28px -14px rgba(39, 117, 202, 0.9);
+}
+.signin .cta:hover { background: var(--usdc-deep); transform: translateY(-1px); }
+.signin .cta:disabled { opacity: 0.6; cursor: default; transform: none; }
+.signin .cta:focus-visible { outline: 3px solid var(--usdc); outline-offset: 3px; }
+
 @media (prefers-reduced-motion: reduce) {
   .act, .act:hover, .stamp, .act--working .tick,
-  .stamp-lg, .pos-wait .beacon, .pos-paid { animation: none; transition: none; transform: none; }
+  .stamp-lg, .pos-wait .beacon, .pos-paid,
+  .charge-btn, .signin .cta { animation: none; transition: none; transform: none; }
 }
