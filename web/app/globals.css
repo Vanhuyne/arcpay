@@ -1,26 +1,277 @@
 @import "tailwindcss";
 
+/*
+ * ArcPay — "the receipt of an instant POS terminal."
+ * The settlement stopwatch is the hero; the perforated receipt card is the signature.
+ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --ink: #0b1020; /* deep navy-ink terminal backdrop, never pure black */
+  --ink-2: #111832; /* raised panel on the backdrop */
+  --paper: #fbfaf7; /* the receipt surface — a warm off-white object, not the page */
+  --paper-line: #ece7dc; /* hairline printed on paper */
+  --label: #6b7180; /* muted receipt label ink */
+  --body: #1c2130; /* receipt body ink */
+  --usdc: #2775ca; /* USDC blue — the pre-payment action */
+  --usdc-deep: #1b5aa0;
+  --settle: #12b76a; /* settlement green — appears ONLY at PAID */
+  --settle-deep: #0e8f54;
+  --alert: #b25a12; /* expired/late, a burnt amber that lives with the paper */
+  --danger: #c0392b;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-background: var(--ink);
+  --color-foreground: var(--paper);
   --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --font-mono: var(--font-space-mono);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--ink);
+  color: var(--paper);
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+}
+
+/* Faint terminal grid on the backdrop — ambient, never loud. */
+.terminal-bg {
+  position: relative;
+  background:
+    radial-gradient(120% 80% at 50% -10%, rgba(39, 117, 202, 0.18), transparent 60%),
+    var(--ink);
+}
+.terminal-bg::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: radial-gradient(120% 100% at 50% 0%, #000 40%, transparent 85%);
+  pointer-events: none;
+}
+
+/* ---- the receipt card ---- */
+.receipt {
+  position: relative;
+  width: 100%;
+  max-width: 25rem;
+  background: var(--paper);
+  color: var(--body);
+  padding: 2.25rem 1.9rem 2.1rem;
+  border-radius: 6px;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.6) inset,
+    0 30px 60px -20px rgba(0, 0, 0, 0.55),
+    0 8px 20px -12px rgba(0, 0, 0, 0.6);
+}
+
+/* Perforated tear edge — the signature element. Notched top and bottom. */
+.receipt::before,
+.receipt::after {
+  content: "";
+  position: absolute;
+  left: -1px;
+  right: -1px;
+  height: 12px;
+  background-size: 22px 12px;
+  background-repeat: repeat-x;
+}
+.receipt::before {
+  top: -6px;
+  background-image: radial-gradient(circle at 11px 12px, transparent 6px, var(--paper) 6.5px);
+}
+.receipt::after {
+  bottom: -6px;
+  background-image: radial-gradient(circle at 11px 0, transparent 6px, var(--paper) 6.5px);
+}
+
+.eyebrow {
+  font-family: var(--font-space-mono), monospace;
+  font-size: 0.68rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--label);
+}
+
+.perf {
+  height: 1px;
+  margin: 1.4rem 0;
+  background-image: linear-gradient(90deg, var(--paper-line) 60%, transparent 0);
+  background-size: 8px 1px;
+  background-repeat: repeat-x;
+  border: 0;
+}
+
+/* The amount — big tabular receipt figures. */
+.amount {
+  font-family: var(--font-space-mono), monospace;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  font-size: clamp(3.2rem, 14vw, 4.4rem);
+  line-height: 0.95;
+  letter-spacing: -0.02em;
+  color: var(--body);
+}
+.amount .unit {
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: var(--label);
+  margin-left: 0.6rem;
+  vertical-align: 0.9rem;
+}
+
+/* The settlement stopwatch — hero during pay, trophy on PAID. */
+.stopwatch {
+  font-family: var(--font-space-mono), monospace;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+/* Action button */
+.act {
+  display: block;
+  width: 100%;
+  margin-top: 1.9rem;
+  padding: 1.05rem 1rem;
+  border-radius: 10px;
+  border: 0;
+  font: inherit;
+  font-weight: 600;
+  font-size: 1rem;
+  color: #fff;
+  background: var(--usdc);
+  cursor: pointer;
+  transition: transform 0.12s ease, background 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: 0 10px 24px -12px rgba(39, 117, 202, 0.9);
+}
+.act:hover:not(:disabled) {
+  background: var(--usdc-deep);
+  transform: translateY(-1px);
+}
+.act:active:not(:disabled) {
+  transform: translateY(0);
+}
+.act:disabled {
+  cursor: default;
+  opacity: 1;
+  color: var(--label);
+  background: var(--paper-line);
+  box-shadow: none;
+}
+.act:focus-visible {
+  outline: 3px solid var(--usdc);
+  outline-offset: 3px;
+}
+
+/* Working state: button becomes a live progress strip with the running clock. */
+.act--working {
+  background: var(--ink-2);
+  color: var(--paper);
+  box-shadow: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.act--working .tick {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--usdc);
+  animation: pulse 0.9s ease-in-out infinite;
+}
+
+.note {
+  margin-top: 1.15rem;
+  text-align: center;
+  font-size: 0.72rem;
+  color: var(--label);
+}
+.note a {
+  color: var(--usdc-deep);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.note a:focus-visible {
+  outline: 2px solid var(--usdc);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+.banner {
+  margin-top: 1.3rem;
+  padding: 0.7rem 0.85rem;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+.banner--alert {
+  background: #fbf1e6;
+  color: var(--alert);
+}
+.banner--danger {
+  background: #fbe9e7;
+  color: var(--danger);
+}
+
+/* PAID state */
+.stamp {
+  display: grid;
+  place-items: center;
+  width: 3.2rem;
+  height: 3.2rem;
+  border-radius: 50%;
+  background: var(--settle);
+  color: #fff;
+  margin: 0 auto;
+  box-shadow: 0 12px 28px -10px rgba(18, 183, 106, 0.8);
+  animation: stampin 0.42s cubic-bezier(0.2, 1.2, 0.3, 1) both;
+}
+.paid-eyebrow {
+  color: var(--settle-deep);
+}
+.paid-time {
+  font-size: clamp(3rem, 13vw, 4rem);
+  color: var(--body);
+}
+.paid-time .s {
+  font-size: 1rem;
+  color: var(--label);
+  margin-left: 0.35rem;
+}
+.receipt-meta {
+  font-family: var(--font-space-mono), monospace;
+  font-size: 0.74rem;
+  color: var(--label);
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.35rem 0;
+}
+.receipt-meta span:last-child {
+  color: var(--body);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.receipt-meta a {
+  color: var(--usdc-deep);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.35; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1); }
+}
+@keyframes stampin {
+  from { transform: scale(0.4) rotate(-12deg); opacity: 0; }
+  to { transform: scale(1) rotate(0); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .act, .act:hover, .stamp, .act--working .tick { animation: none; transition: none; transform: none; }
 }
