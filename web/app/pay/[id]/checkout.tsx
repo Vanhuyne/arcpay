@@ -35,9 +35,13 @@ export function Checkout({ invoice }: { invoice: PublicInvoice }) {
   }, [wrongChain, switchChain]);
 
   // The live stopwatch: the product's whole claim is that this number stays small.
+  // The finality clock times settlement only: it starts when the signed tx is
+  // submitted, not when the customer taps Pay. The seconds spent deciding in the
+  // wallet are the customer's, not Arc's, and must not inflate "time to final".
+  const settling = phase === 'confirming';
   const startRef = useRef(0);
   useEffect(() => {
-    if (!working) return;
+    if (!settling) return;
     let raf = 0;
     const loop = () => {
       setLiveMs(performance.now() - startRef.current);
@@ -45,11 +49,10 @@ export function Checkout({ invoice }: { invoice: PublicInvoice }) {
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, [working]);
+  }, [settling]);
 
   async function pay() {
     setError(null);
-    startRef.current = performance.now();
     setLiveMs(0);
     setPhase('signing');
 
@@ -64,6 +67,8 @@ export function Checkout({ invoice }: { invoice: PublicInvoice }) {
         value: amountNative, // gas is USDC too — the customer holds nothing else
       });
 
+      // Tx is now on the wire — start the settlement clock here.
+      startRef.current = performance.now();
       setTxHash(hash);
       setPhase('confirming');
 
@@ -169,7 +174,8 @@ export function Checkout({ invoice }: { invoice: PublicInvoice }) {
             <span className="tick" aria-hidden />
             {phase === 'signing' ? 'Confirm in your wallet' : 'Settling on Arc'}
           </span>
-          <span className="stopwatch">{(liveMs / 1000).toFixed(2)}s</span>
+          {/* No clock while the wallet is open — nothing is settling yet. */}
+          <span className="stopwatch">{settling ? `${(liveMs / 1000).toFixed(2)}s` : ''}</span>
         </div>
       ) : (
         <button className="act" disabled={expired} onClick={pay}>
