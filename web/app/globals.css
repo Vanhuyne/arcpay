@@ -217,6 +217,79 @@ body {
   color: var(--danger);
 }
 
+/* Pay-from source toggle (Arc | Base Sepolia) */
+.source-toggle {
+  display: flex;
+  gap: 4px;
+  margin-top: 1.4rem;
+  padding: 4px;
+  border-radius: 10px;
+  background: var(--paper-line);
+}
+.source-toggle button {
+  flex: 1;
+  padding: 0.5rem 0.75rem;
+  border: 0;
+  border-radius: 7px;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--label);
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.source-toggle button.on {
+  color: var(--body);
+  background: var(--paper);
+  box-shadow: 0 1px 3px rgba(11, 16, 32, 0.12);
+}
+.source-toggle button:focus-visible {
+  outline: 2px solid var(--usdc);
+  outline-offset: 2px;
+}
+
+/* Bridge progress stepper: done -> active -> upcoming */
+.bridge-steps {
+  list-style: none;
+  margin: 1.6rem 0 0;
+  padding: 0;
+  font-family: var(--font-space-mono), monospace;
+  font-size: 0.8rem;
+}
+.bridge-steps li {
+  position: relative;
+  padding: 0.42rem 0 0.42rem 1.7rem;
+  color: var(--label);
+}
+.bridge-steps li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid var(--paper-line);
+  background: transparent;
+}
+.bridge-steps li.done {
+  color: var(--body);
+}
+.bridge-steps li.done::before {
+  border-color: var(--settle);
+  background: var(--settle);
+}
+.bridge-steps li.active {
+  color: var(--body);
+}
+.bridge-steps li.active::before {
+  border-color: var(--usdc);
+  background: var(--usdc);
+  animation: pulse 0.9s ease-in-out infinite;
+}
+
 /* PAID state */
 .stamp {
   display: grid;

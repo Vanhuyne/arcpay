@@ -9,6 +9,7 @@ import { PAYMENT_ROUTER_ABI, ROUTER_ADDRESS } from '@/lib/router';
 import { toNative } from '@/lib/usdc';
 import { wagmiConfig } from '@/lib/wagmi';
 import type { PublicInvoice } from '@/lib/dto';
+import { BridgeCheckout } from './bridge-checkout';
 
 type Phase = 'idle' | 'signing' | 'confirming' | 'paid' | 'error';
 
@@ -26,13 +27,15 @@ export function Checkout({ invoice }: { invoice: PublicInvoice }) {
   const [elapsedMs, setElapsedMs] = useState<number | null>(null);
   const [liveMs, setLiveMs] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [source, setSource] = useState<'arc' | 'base'>('arc');
 
   const wrongChain = isConnected && chainId !== arcTestnet.id;
   const working = phase === 'signing' || phase === 'confirming';
 
+  // Guarded on source so the auto-switch never yanks the wallet back to Arc mid-bridge.
   useEffect(() => {
-    if (wrongChain) switchChain({ chainId: arcTestnet.id });
-  }, [wrongChain, switchChain]);
+    if (source === 'arc' && wrongChain) switchChain({ chainId: arcTestnet.id });
+  }, [source, wrongChain, switchChain]);
 
   // The live stopwatch: the product's whole claim is that this number stays small.
   // The finality clock times settlement only: it starts when the signed tx is
@@ -164,7 +167,34 @@ export function Checkout({ invoice }: { invoice: PublicInvoice }) {
         </p>
       )}
 
-      {!isConnected ? (
+      <div className="source-toggle" role="tablist" aria-label="Pay from">
+        <button
+          role="tab"
+          aria-selected={source === 'arc'}
+          className={source === 'arc' ? 'on' : ''}
+          onClick={() => setSource('arc')}
+        >
+          Arc
+        </button>
+        <button
+          role="tab"
+          aria-selected={source === 'base'}
+          className={source === 'base' ? 'on' : ''}
+          onClick={() => setSource('base')}
+        >
+          Base Sepolia
+        </button>
+      </div>
+
+      {source === 'base' ? (
+        !isConnected ? (
+          <button className="act" onClick={() => connect({ connector: connectors[0] })}>
+            Connect wallet
+          </button>
+        ) : (
+          <BridgeCheckout invoice={invoice} />
+        )
+      ) : !isConnected ? (
         <button className="act" onClick={() => connect({ connector: connectors[0] })}>
           Connect wallet
         </button>
