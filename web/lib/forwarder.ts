@@ -24,6 +24,13 @@ export const FORWARDER_ABI = [
     ],
     outputs: [],
   },
+  // Errors are needed so viem can decode reverts from simulateContract.
+  // AlreadySettled is PaymentRouter's error, bubbled through mintAndPay.
+  { type: 'error', name: 'AlreadySettled', inputs: [] },
+  { type: 'error', name: 'OnlyRelayer', inputs: [] },
+  { type: 'error', name: 'ReceiveFailed', inputs: [] },
+  { type: 'error', name: 'NothingMinted', inputs: [] },
+  { type: 'error', name: 'RescueFailed', inputs: [] },
 ] as const;
 
 export const FORWARDER_ADDRESS = process.env.NEXT_PUBLIC_FORWARDER_ADDRESS as Address;

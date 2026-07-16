@@ -1,4 +1,4 @@
-import { boolean, numeric, pgTable, text, timestamp } from 'drizzle-orm/pg-core';
+import { boolean, integer, numeric, pgTable, text, timestamp } from 'drizzle-orm/pg-core';
 
 export const merchants = pgTable('merchants', {
   address: text('address').primaryKey(), // lowercase; checksummed only for display
@@ -27,3 +27,29 @@ export const invoices = pgTable('invoices', {
 });
 
 export type Invoice = typeof invoices.$inferSelect;
+
+/**
+ * One row per verified CCTP burn. Unlike invoice expiry, `status` is stored:
+ * every step records an external fact we already observed (a receipt, an
+ * attestation, a mint tx), not a value derivable at read time.
+ * burn_confirmed -> attested -> paid | failed
+ * (`burn_submitted` never persists: the server only inserts verified burns.)
+ */
+export const bridgePayments = pgTable('bridge_payments', {
+  burnTxHash: text('burn_tx_hash').primaryKey(), // primary key = replay protection
+  invoiceId: text('invoice_id').notNull(),
+  sourceDomain: integer('source_domain').notNull(),
+  amount6: numeric('amount6', { mode: 'bigint' }).notNull(),
+  depositor: text('depositor').notNull(), // customer on the source chain; rescue() refund target
+  status: text('status', { enum: ['burn_confirmed', 'attested', 'paid', 'failed'] })
+    .notNull()
+    .default('burn_confirmed'),
+  message: text('message'), // hex CCTP message, set when attested
+  attestation: text('attestation'), // hex, set when attested
+  mintTxHash: text('mint_tx_hash'),
+  failureReason: text('failure_reason'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type BridgePayment = typeof bridgePayments.$inferSelect;
