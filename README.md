@@ -32,6 +32,28 @@ clock a person sees (tap Pay → PAID) is longer than 0.77s because it includes 
 spent confirming in the wallet — that is human time, not Arc's. The 0.77s is the chain
 settlement the "under a second" claim is about.
 
+## Pay from another chain (CCTP v2)
+
+A customer holding standard USDC on **Base Sepolia** can pay an ArcPay invoice from
+the same checkout page: two signatures on Base (approve + `depositForBurn`), and the
+rest is automatic. The server verifies the burn on the source chain, waits for
+Circle's attestation, then a relayer calls
+[`CrossPayForwarder.mintAndPay`](contracts/src/CrossPayForwarder.sol) on Arc — the
+CCTP mint and the `PaymentRouter.pay` happen in **one atomic transaction**, so the
+same `InvoicePaid` event fires and the POS/verification pipeline is untouched. If the
+customer closes the tab after burning, a cron sweep finishes the payment without any
+browser.
+
+Measured on testnet: the Arc-side settlement (mint → paid) is still sub-second, but
+the end-to-end time is **~20 minutes**, dominated by Circle's standard-transfer
+attestation, which waits for the Base Sepolia batch to finalize on Ethereum L1. A
+payment that lands after the invoice's 15-minute expiry is still recorded as paid
+(`wasLate`).
+
+Two extra env keys: `NEXT_PUBLIC_FORWARDER_ADDRESS` (deployed `CrossPayForwarder`)
+and `RELAYER_PRIVATE_KEY` (ops wallet holding a little USDC on Arc for `mintAndPay`
+gas — not the merchant, not the deployer).
+
 ## How it works
 
 A stateless [`PaymentRouter`](contracts/src/PaymentRouter.sol) forwards native USDC to the
@@ -53,13 +75,13 @@ Prerequisites: [pnpm](https://pnpm.io), [Foundry](https://getfoundry.sh), a
 
 ```bash
 # contracts
-cd contracts && forge test               # 7 tests
+cd contracts && forge test               # 13 tests
 
 # web
 cd ../web && pnpm install
 cp .env.example .env.local               # then fill in the values below
 pnpm drizzle-kit push                     # create the schema in Neon
-pnpm vitest run                           # 43 tests
+pnpm vitest run                           # 69 tests
 pnpm dev                                  # http://localhost:3000
 ```
 
@@ -72,6 +94,8 @@ pnpm dev                                  # http://localhost:3000
 | `SESSION_SECRET` | JWT key for SIWE sessions (≥32 bytes) |
 | `CRON_SECRET` | bearer guarding `/api/cron/reconcile` |
 | `NEXT_PUBLIC_ARC_RPC_HTTP` / `_WS` | optional; default to Arc Testnet public RPC |
+| `NEXT_PUBLIC_FORWARDER_ADDRESS` | deployed `CrossPayForwarder` (below) |
+| `RELAYER_PRIVATE_KEY` | ops key relaying CCTP mints on Arc (needs a little USDC for gas) |
 
 The reconciler cron runs daily on Vercel Hobby (Pro allows per-minute); it is a safety net,
 not a detection path, and can always be invoked directly.
@@ -80,6 +104,9 @@ not a detection path, and can always be invoked directly.
 
 `PaymentRouter` on Arc Testnet (chain `5042002`):
 [`0x8F560cA651B89FefdcC3273960f9b56BF69EdEaE`](https://testnet.arcscan.app/address/0x8F560cA651B89FefdcC3273960f9b56BF69EdEaE)
+
+`CrossPayForwarder` on Arc Testnet:
+[`0x8Dc1252663F56dC50583c7edE727193C45347482`](https://testnet.arcscan.app/address/0x8Dc1252663F56dC50583c7edE727193C45347482)
 
 ## Stack
 

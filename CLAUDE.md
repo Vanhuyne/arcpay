@@ -9,10 +9,10 @@ plan `docs/superpowers/plans/2026-07-13-arcpay-mvp.md`. `web/` has its own `AGEN
 
 ```bash
 # contracts
-cd contracts && forge test                  # 7 tests
+cd contracts && forge test                  # 13 tests
 
 # web (run from web/)
-pnpm vitest run                             # 43 tests
+pnpm vitest run                             # 68 tests
 npx tsc --noEmit                            # typecheck (rm -f tsconfig.tsbuildinfo first if it lies)
 pnpm next build                             # prod build — this is what catches type errors CI-style
 pnpm dev                                    # localhost:3000
@@ -34,6 +34,13 @@ Bash cwd persists between calls — `cd web` explicitly; don't assume you're the
 4. **Invoice `expired` is derived, never stored** (`invoiceStatus`); a `paid` invoice stays
    paid forever, even if the money arrived late.
 5. English only (code, comments, commits). Conventional Commits. Commit after each unit of work.
+6. **CCTP burns are verified server-side.** A `burnTxHash` from a browser is a hint;
+   `web/lib/cctp.ts#verifyBurn` re-reads the source-chain receipt and requires
+   forwarder recipient + destinationCaller, Arc domain, and exact invoice amount.
+   `web/lib/verify.ts` remains the only verifier for Arc-side settlement.
+7. **The forwarder never converts decimals.** `CrossPayForwarder` forwards its native
+   balance delta; the CCTP burn amount is 6-decimal USDC == `invoice.amount6` (same
+   unit, not a conversion). `usdc.ts` stays the only converting module.
 
 ## Gotchas that already bit us (don't rediscover them)
 
@@ -54,14 +61,34 @@ Bash cwd persists between calls — `cd web` explicitly; don't assume you're the
   auth bypass (replay + cross-domain).
 - **`/api/auth/siwe` sets two Set-Cookie headers** (nonce delete + session). Clients reading
   the session cookie must use `getSetCookie()`, not `.get('set-cookie')`.
+- **CCTP v2 event ≠ v1.** `DepositForBurn` v2 has no nonce and ends with `hookData`;
+  the Iris v2 API is `GET /v2/messages/{domain}?transactionHash=…` and returns 404
+  (not pending) until the burn is indexed. Addresses are identical on every chain.
+- **A "standard" CCTP transfer waits for L1 finality.** From Base Sepolia the attestation
+  takes ~10–20 minutes (the L2 batch must finalize on Ethereum Sepolia), not the ~1 minute
+  marketing suggests. The state machine and UI must tolerate a long `burn_confirmed`.
+- **The relayer key (`RELAYER_PRIVATE_KEY`) is ops infrastructure**, not the merchant
+  and not the deployer. It needs a little USDC on Arc for `mintAndPay` gas. If bridge
+  payments stall at `attested`, check its balance first.
+- **Turbopack's `.next` cache can serve stale CSS in dev** after `next build` ran in the
+  same tree. If an edit to `globals.css` doesn't show up, `rm -rf .next` and restart dev.
+- **vitest writes real rows into the shared Neon DB** (invoices/bridge_payments with
+  merchant `0x2222…`). They pile up as stored-`pending`, and the reconcile cron then
+  burns ~3 `eth_getLogs` per row until the public Arc RPC quota trips (-32011) and the
+  sweep 500s. Purge test debris if the cron starts failing; the sweep now skips
+  per-invoice RPC failures instead of dying wholesale.
 
 ## Layout
 
-`contracts/src/PaymentRouter.sol` — the only contract (stateless forwarder; griefing-resistant
-settle key). `web/lib/`: `arc.ts` (chain+clients), `usdc.ts` (the decimals boundary),
-`router.ts` (ABI+address), `verify.ts` (the verifier), `invoices.ts` (DB), `session.ts` (SIWE),
-`dto.ts` (bigints→strings for JSON). Pages: `app/pay/[id]` (checkout), `app/pos/[id]` (merchant
-QR), `app/dashboard` (merchant console).
+`contracts/src/PaymentRouter.sol` — stateless forwarder (griefing-resistant settle key).
+`contracts/src/CrossPayForwarder.sol` — CCTP v2 mint → `router.pay` in one tx, deployed at
+`0x8Dc1252663F56dC50583c7edE727193C45347482`. `web/lib/`: `arc.ts` (chain+clients),
+`usdc.ts` (the decimals boundary), `router.ts` (ABI+address), `forwarder.ts` (forwarder
+ABI+address), `verify.ts` (the verifier), `cctp.ts` (source chains, burn verifier, Iris
+client), `bridge.ts` (bridge_payments state machine), `relayer.ts` (ops wallet, mintAndPay),
+`invoices.ts` (DB), `session.ts` (SIWE), `dto.ts` (bigints→strings for JSON). Pages:
+`app/pay/[id]` (checkout, incl. `bridge-checkout.tsx`), `app/pos/[id]` (merchant QR),
+`app/dashboard` (merchant console).
 
 ## Environment & secrets
 
