@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { useAccount, useConnect, useSwitchChain, useWriteContract } from 'wagmi';
+import { useAccount, useConnect, useDisconnect, useSwitchChain, useWriteContract } from 'wagmi';
 import { waitForTransactionReceipt } from 'wagmi/actions';
 import type { Hex } from 'viem';
 import { arcTestnet, txUrl } from '@/lib/arc';
@@ -17,8 +17,9 @@ const shortHash = (h: string) => `${h.slice(0, 10)}…${h.slice(-8)}`;
 const shortAddr = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;
 
 export function Checkout({ invoice }: { invoice: PublicInvoice }) {
-  const { isConnected, chainId } = useAccount();
+  const { address, isConnected, chainId } = useAccount();
   const { connect, connectors } = useConnect();
+  const { disconnect } = useDisconnect();
   const { switchChain } = useSwitchChain();
   const { writeContractAsync } = useWriteContract();
 
@@ -211,6 +212,15 @@ export function Checkout({ invoice }: { invoice: PublicInvoice }) {
         <button className="act" disabled={expired} onClick={pay}>
           Pay {invoice.amountDisplay} USDC
         </button>
+      )}
+
+      {isConnected && !working && (
+        <p className="wallet-line">
+          {address ? `${shortAddr(address)}` : ''}
+          <button className="disconnect" onClick={() => disconnect()}>
+            Disconnect
+          </button>
+        </p>
       )}
 
       <p className="note">

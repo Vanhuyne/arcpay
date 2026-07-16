@@ -217,6 +217,33 @@ body {
   color: var(--danger);
 }
 
+/* Connected-wallet line: who am I, and the way out */
+.wallet-line {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  margin-top: 0.9rem;
+  font-family: var(--font-space-mono), monospace;
+  font-size: 0.72rem;
+  color: var(--label);
+}
+.wallet-line .disconnect {
+  border: 0;
+  padding: 0;
+  background: none;
+  font: inherit;
+  color: var(--usdc-deep);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.wallet-line .disconnect:focus-visible {
+  outline: 2px solid var(--usdc);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
 /* Pay-from source toggle (Arc | Base Sepolia) */
 .source-toggle {
   display: flex;
@@ -490,6 +517,26 @@ body {
   border-radius: 50%;
   background: var(--settle);
   box-shadow: 0 0 0 3px rgba(18, 183, 106, 0.18);
+}
+.who .signout {
+  margin-left: 0.5rem;
+  padding: 0.25rem 0.6rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 7px;
+  background: none;
+  font: inherit;
+  font-size: 0.72rem;
+  color: #9aa1b4;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+.who .signout:hover {
+  color: var(--paper);
+  border-color: rgba(255, 255, 255, 0.35);
+}
+.who .signout:focus-visible {
+  outline: 2px solid var(--usdc);
+  outline-offset: 2px;
 }
 
 .panel {

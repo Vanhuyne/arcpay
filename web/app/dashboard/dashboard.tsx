@@ -44,6 +44,11 @@ export function Dashboard({ merchant }: { merchant: string }) {
     router.push(`/pos/${invoice.id}`); // straight to the counter screen
   }
 
+  async function signOut() {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    router.refresh(); // server re-reads the (now absent) session -> SignIn
+  }
+
   return (
     <main className="terminal-bg" style={{ minHeight: '100dvh' }}>
       <div className="console">
@@ -52,6 +57,9 @@ export function Dashboard({ merchant }: { merchant: string }) {
           <span className="who">
             <span className="dot" aria-hidden />
             {merchant.slice(0, 6)}…{merchant.slice(-4)}
+            <button className="signout" onClick={signOut}>
+              Sign out
+            </button>
           </span>
         </header>
 

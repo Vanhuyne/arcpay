@@ -54,3 +54,8 @@ export async function readSession(): Promise<Address | null> {
   const sub = await verifySessionToken(token);
   return (sub as Address) ?? null;
 }
+
+/** Sign out: drop the session cookie. A no-op when not signed in. */
+export async function destroySession(): Promise<void> {
+  (await cookies()).delete(SESSION_COOKIE);
+}
