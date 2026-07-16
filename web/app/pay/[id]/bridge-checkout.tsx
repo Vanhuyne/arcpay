@@ -25,7 +25,7 @@ const BASE = SOURCE_CHAINS[6];
 const STEP_LABELS = [
   'Approve USDC on Base',
   'Burn on Base Sepolia',
-  'Circle attestation (~1 min)',
+  'Circle attestation (10–20 min)',
   'Minted & paid on Arc',
 ];
 
@@ -138,7 +138,8 @@ export function BridgeCheckout({ invoice }: { invoice: PublicInvoice }) {
 
       {phase === 'bridging' && (
         <p className="note">
-          Bridging via CCTP. You can close this page — the payment completes on its own.
+          Bridging via CCTP — a standard transfer waits for L1 finality (10–20 min).
+          You can close this page; the payment completes on its own.
         </p>
       )}
 
