@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { Hex } from 'viem';
 import { publicClient } from '@/lib/arc';
+import { advanceBridgePayment, listUnfinishedBridgePayments } from '@/lib/bridge';
 import { getInvoice, listPending } from '@/lib/invoices';
 import { INVOICE_PAID_EVENT, ROUTER_ADDRESS } from '@/lib/router';
 import { verifyPayment } from '@/lib/verify';
@@ -57,5 +58,19 @@ export async function GET(req: Request) {
     }
   }
 
-  return NextResponse.json({ checked: pending.length, settled });
+  // Second safety net: bridge payments whose browser died mid-flight. Two
+  // advance calls per row so an attestation that completed since the last run
+  // still reaches mintAndPay in a single cron pass.
+  let bridged = 0;
+  for (const bp of await listUnfinishedBridgePayments()) {
+    const invoice = await getInvoice(bp.invoiceId);
+    if (!invoice) continue;
+    let current = bp;
+    for (let i = 0; i < 2 && (current.status === 'burn_confirmed' || current.status === 'attested'); i++) {
+      current = await advanceBridgePayment(current, invoice);
+    }
+    if (current.status === 'paid') bridged++;
+  }
+
+  return NextResponse.json({ checked: pending.length, settled, bridged });
 }

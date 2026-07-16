@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { toPublicInvoice } from '@/lib/dto';
-import type { Invoice } from '@/db/schema';
+import { toPublicBridge, toPublicInvoice } from '@/lib/dto';
+import type { BridgePayment, Invoice } from '@/db/schema';
 
 const inv: Invoice = {
   id: '0xabc',
@@ -48,5 +48,30 @@ describe('toPublicInvoice', () => {
     const dto = toPublicInvoice(paid, new Date('2026-07-13T10:05:00Z'));
     expect(dto.gasFee).toBe('1151682800000000');
     expect(typeof dto.gasFee).toBe('string');
+  });
+});
+
+describe('toPublicBridge', () => {
+  it('exposes only what the browser needs', () => {
+    const bp: BridgePayment = {
+      burnTxHash: '0x' + 'ab'.repeat(32),
+      invoiceId: '0x' + 'cd'.repeat(32),
+      sourceDomain: 6,
+      amount6: 25_000_000n,
+      depositor: '0x1111111111111111111111111111111111111111',
+      status: 'attested',
+      message: '0x1234',
+      attestation: '0x5678',
+      mintTxHash: null,
+      failureReason: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    expect(toPublicBridge(bp)).toEqual({
+      status: 'attested',
+      burnTxHash: bp.burnTxHash,
+      mintTxHash: null,
+      failureReason: null,
+    });
   });
 });

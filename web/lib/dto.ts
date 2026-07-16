@@ -1,7 +1,7 @@
 import type { Address } from 'viem';
 import { invoiceStatus } from '@/lib/invoices';
 import { formatUsdc } from '@/lib/usdc';
-import type { Invoice } from '@/db/schema';
+import type { BridgePayment, Invoice } from '@/db/schema';
 
 export type PublicInvoice = {
   id: string;
@@ -30,5 +30,22 @@ export function toPublicInvoice(inv: Invoice, now: Date = new Date()): PublicInv
     payer: inv.payer,
     gasFee: inv.gasFee?.toString() ?? null,
     paidAt: inv.paidAt?.toISOString() ?? null,
+  };
+}
+
+export type PublicBridge = {
+  status: 'burn_confirmed' | 'attested' | 'paid' | 'failed';
+  burnTxHash: string;
+  mintTxHash: string | null;
+  failureReason: string | null;
+};
+
+/** The CCTP message and attestation stay server-side: the browser has no use for them. */
+export function toPublicBridge(bp: BridgePayment): PublicBridge {
+  return {
+    status: bp.status,
+    burnTxHash: bp.burnTxHash,
+    mintTxHash: bp.mintTxHash,
+    failureReason: bp.failureReason,
   };
 }
