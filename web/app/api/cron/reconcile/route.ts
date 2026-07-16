@@ -45,7 +45,14 @@ export async function GET(req: Request) {
 
   let settled = 0;
   for (const invoice of pending) {
-    const logs = await getPaidLogs(invoice.id as Hex, fromBlock, head);
+    // One invoice's RPC failure (rate limit, timeout) must not kill the whole
+    // sweep — the bridge section below still has to run. Skip and move on.
+    let logs;
+    try {
+      logs = await getPaidLogs(invoice.id as Hex, fromBlock, head);
+    } catch {
+      continue;
+    }
 
     for (const log of logs) {
       if (!log.transactionHash) continue;
