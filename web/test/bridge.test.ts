@@ -40,7 +40,7 @@ function deps(overrides: Partial<AdvanceDeps> = {}): AdvanceDeps {
   return {
     fetchAttestation: vi.fn().mockResolvedValue({ status: 'pending' }),
     sendMintAndPay: vi.fn().mockResolvedValue(MINT_TX),
-    confirmPayment: vi.fn().mockResolvedValue(true),
+    confirmPayment: vi.fn().mockResolvedValue({ ok: true, alreadyPaid: false }),
     ...overrides,
   };
 }
@@ -104,19 +104,43 @@ describe('bridge payment lifecycle', () => {
     expect(failed.failureReason).toBe('already_settled');
   });
 
-  it('marks failed with verify_failed when the verifier rejects the mint', async () => {
+  it('marks failed only on a deterministic verifier mismatch', async () => {
     const { invoice, bp } = await freshBridgePayment();
     const d = deps({
       fetchAttestation: vi
         .fn()
         .mockResolvedValue({ status: 'complete', message: '0x1234', attestation: '0x5678' }),
-      confirmPayment: vi.fn().mockResolvedValue(false),
+      confirmPayment: vi.fn().mockResolvedValue({ ok: false, reason: 'amount_mismatch' }),
     });
     const attested = await advanceBridgePayment(bp, invoice, d);
     const failed = await advanceBridgePayment(attested, invoice, d);
     expect(failed.status).toBe('failed');
-    expect(failed.failureReason).toBe('verify_failed');
+    expect(failed.failureReason).toBe('verify_failed:amount_mismatch');
     expect(failed.mintTxHash).toBe(MINT_TX);
+  });
+
+  it('stays attested when verify cannot see the receipt yet, then pays without re-sending', async () => {
+    // The mint landed on chain but the verifier hit a lagging RPC replica
+    // (no_receipt). That is transient: the row must NOT die — it keeps the
+    // mintTxHash and the next advance only re-verifies, never re-mints.
+    const { invoice, bp } = await freshBridgePayment();
+    const d = deps({
+      fetchAttestation: vi
+        .fn()
+        .mockResolvedValue({ status: 'complete', message: '0x1234', attestation: '0x5678' }),
+      confirmPayment: vi
+        .fn()
+        .mockResolvedValueOnce({ ok: false, reason: 'no_receipt' })
+        .mockResolvedValueOnce({ ok: true, alreadyPaid: false }),
+    });
+    const attested = await advanceBridgePayment(bp, invoice, d);
+    const still = await advanceBridgePayment(attested, invoice, d);
+    expect(still.status).toBe('attested');
+    expect(still.mintTxHash).toBe(MINT_TX);
+
+    const paid = await advanceBridgePayment(still, invoice, d);
+    expect(paid.status).toBe('paid');
+    expect(d.sendMintAndPay).toHaveBeenCalledTimes(1);
   });
 
   it('leaves the row attested when the relay fails transiently, so it retries', async () => {

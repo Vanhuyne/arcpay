@@ -4,7 +4,7 @@ import { db } from '@/db';
 import { bridgePayments, type BridgePayment, type Invoice } from '@/db/schema';
 import { fetchAttestation } from '@/lib/cctp';
 import { sendMintAndPay } from '@/lib/relayer';
-import { verifyPayment } from '@/lib/verify';
+import { verifyPayment, type VerifyResult } from '@/lib/verify';
 
 export async function createBridgePayment(input: {
   burnTxHash: Hex;
@@ -59,17 +59,15 @@ async function update(
 export type AdvanceDeps = {
   fetchAttestation: typeof fetchAttestation;
   sendMintAndPay: typeof sendMintAndPay;
-  /** Wraps verify.ts — the ONE verifier. Returns true when the invoice is now paid. */
-  confirmPayment: (invoice: Invoice, mintTxHash: Hex) => Promise<boolean>;
+  /** Wraps verify.ts — the ONE verifier. The full result matters: only a
+   *  deterministic mismatch may kill the row; no_receipt is a lagging RPC. */
+  confirmPayment: (invoice: Invoice, mintTxHash: Hex) => Promise<VerifyResult>;
 };
 
 const defaultDeps: AdvanceDeps = {
   fetchAttestation,
   sendMintAndPay,
-  confirmPayment: async (invoice, mintTxHash) => {
-    const result = await verifyPayment(invoice, mintTxHash);
-    return result.ok;
-  },
+  confirmPayment: (invoice, mintTxHash) => verifyPayment(invoice, mintTxHash),
 };
 
 /**
@@ -94,43 +92,53 @@ export async function advanceBridgePayment(
   }
 
   if (bp.status === 'attested') {
-    let mintTxHash: Hex;
-    try {
-      mintTxHash = await deps.sendMintAndPay(
-        bp.message as Hex,
-        bp.attestation as Hex,
-        bp.invoiceId as Hex,
-        invoice.merchant as Address,
-      );
-    } catch (e) {
-      // Deterministic dead end: the triple is already settled on the router.
-      // The relayer refunds via rescue() manually; everything else retries.
-      if ((e as Error).message.includes('AlreadySettled')) {
-        return (
-          (await update(bp.burnTxHash, 'attested', {
-            status: 'failed',
-            failureReason: 'already_settled',
-          })) ?? bp
+    // A stored mintTxHash means the mint already landed and only verification
+    // is outstanding — never send the (consumed) CCTP message again.
+    let mintTxHash = bp.mintTxHash as Hex | null;
+    if (!mintTxHash) {
+      try {
+        mintTxHash = await deps.sendMintAndPay(
+          bp.message as Hex,
+          bp.attestation as Hex,
+          bp.invoiceId as Hex,
+          invoice.merchant as Address,
         );
+      } catch (e) {
+        // Deterministic dead end: the triple is already settled on the router.
+        // The relayer refunds via rescue() manually; everything else retries.
+        if ((e as Error).message.includes('AlreadySettled')) {
+          return (
+            (await update(bp.burnTxHash, 'attested', {
+              status: 'failed',
+              failureReason: 'already_settled',
+            })) ?? bp
+          );
+        }
+        return bp;
       }
-      return bp;
     }
 
     // The mint landed, but paid is terminal — only record it once the ONE
-    // verifier has actually flipped the invoice. A false here (e.g. amount
-    // mismatch) is a divergence we must surface, not bury under 'paid'.
-    const confirmed = await deps.confirmPayment(invoice, mintTxHash);
-    if (!confirmed) {
+    // verifier has actually flipped the invoice.
+    const result = await deps.confirmPayment(invoice, mintTxHash);
+    if (result.ok) {
       return (
-        (await update(bp.burnTxHash, 'attested', {
-          status: 'failed',
-          failureReason: 'verify_failed',
-          mintTxHash,
-        })) ?? bp
+        (await update(bp.burnTxHash, 'attested', { status: 'paid', mintTxHash })) ?? bp
       );
     }
+    if (result.reason === 'no_receipt') {
+      // The relayer waited for inclusion, so the receipt exists — this read
+      // hit a lagging replica. Keep the hash, stay attested, re-verify later.
+      return (await update(bp.burnTxHash, 'attested', { mintTxHash })) ?? bp;
+    }
+    // A real divergence (wrong amount, wrong merchant, reverted mint): surface
+    // it, don't bury it under 'paid'.
     return (
-      (await update(bp.burnTxHash, 'attested', { status: 'paid', mintTxHash })) ?? bp
+      (await update(bp.burnTxHash, 'attested', {
+        status: 'failed',
+        failureReason: `verify_failed:${result.reason}`,
+        mintTxHash,
+      })) ?? bp
     );
   }
 
