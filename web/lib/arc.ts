@@ -22,3 +22,7 @@ export function createWsClient(): PublicClient {
 export function txUrl(hash: string): string {
   return `${ARC_EXPLORER_URL}/tx/${hash}`;
 }
+
+export function addressUrl(address: string): string {
+  return `${ARC_EXPLORER_URL}/address/${address}`;
+}

@@ -10,6 +10,8 @@ import {
 import { privateKeyToAccount } from 'viem/accounts';
 import { arcTestnet } from '@/lib/arc';
 import { FORWARDER_ABI, FORWARDER_ADDRESS } from '@/lib/forwarder';
+import { PAYMENT_ROUTER_ABI, ROUTER_ADDRESS } from '@/lib/router';
+import { toNative } from '@/lib/usdc';
 
 const RPC_HTTP = process.env.NEXT_PUBLIC_ARC_RPC_HTTP ?? 'https://rpc.testnet.arc.network';
 
@@ -25,6 +27,37 @@ function relayerClient() {
     chain: arcTestnet,
     transport: http(RPC_HTTP),
   }).extend(publicActions);
+}
+
+/** The ops wallet's address — also the merchant of homepage demo invoices. */
+export function relayerAddress(): Address {
+  const key = process.env.RELAYER_PRIVATE_KEY;
+  if (!key) throw new Error('RELAYER_PRIVATE_KEY is not set');
+  return privateKeyToAccount(key as Hex).address;
+}
+
+/**
+ * Pay an invoice from the ops wallet (homepage demo). Simulate first: the
+ * router reverts a double-pay deterministically, so a race costs a failed
+ * simulation, not gas. Arc blocks are sub-second — waiting keeps callers simple.
+ */
+export async function sendRouterPay(
+  invoiceId: Hex,
+  merchant: Address,
+  amount6: bigint,
+): Promise<Hex> {
+  const client = relayerClient();
+  const amountNative = toNative(amount6);
+  const { request } = await client.simulateContract({
+    address: ROUTER_ADDRESS,
+    abi: PAYMENT_ROUTER_ABI,
+    functionName: 'pay',
+    args: [invoiceId, merchant, amountNative],
+    value: amountNative,
+  });
+  const hash = await client.writeContract(request);
+  await client.waitForTransactionReceipt({ hash });
+  return hash;
 }
 
 /**
