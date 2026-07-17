@@ -730,3 +730,67 @@ body {
   .stamp-lg, .pos-wait .beacon, .demo-banner .beacon, .pos-paid,
   .charge-btn, .signin .cta { animation: none; transition: none; transform: none; }
 }
+
+/* ---- site chrome: header + footer (landing, dashboard, 404) ---- */
+.site-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  max-width: 64rem;
+  margin: 0 auto;
+  padding: 1.1rem 1.5rem;
+}
+.site-wordmark {
+  text-decoration: none;
+}
+.site-nav {
+  display: flex;
+  align-items: center;
+  gap: 1.4rem;
+  font-size: 0.9rem;
+}
+.site-nav a {
+  color: var(--label);
+  text-decoration: none;
+}
+.site-nav a:hover {
+  color: var(--paper);
+}
+.site-nav .site-nav-cta {
+  color: var(--paper);
+  border: 1px solid rgba(251, 250, 247, 0.25);
+  border-radius: 999px;
+  padding: 0.35rem 0.95rem;
+}
+.site-nav .site-nav-cta:hover {
+  border-color: var(--usdc);
+}
+.site-nav a:focus-visible {
+  outline: 2px solid var(--usdc);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+.site-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+  max-width: 64rem;
+  margin: 0 auto;
+  padding: 1.4rem 1.5rem 2rem;
+  border-top: 1px solid rgba(251, 250, 247, 0.12);
+  font-size: 0.8rem;
+  color: var(--label);
+}
+.site-footer nav {
+  display: flex;
+  gap: 1.2rem;
+}
+.site-footer a {
+  color: var(--label);
+  text-decoration: none;
+}
+.site-footer a:hover {
+  color: var(--paper);
+}
