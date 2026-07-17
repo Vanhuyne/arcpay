@@ -8,7 +8,15 @@ import { playPaidChime } from '@/lib/chime';
 import { PAYMENT_ROUTER_ABI, ROUTER_ADDRESS } from '@/lib/router';
 import type { PublicInvoice } from '@/lib/dto';
 
-export function PosScreen({ invoice, payUrl }: { invoice: PublicInvoice; payUrl: string }) {
+export function PosScreen({
+  invoice,
+  payUrl,
+  demo = false,
+}: {
+  invoice: PublicInvoice;
+  payUrl: string;
+  demo?: boolean;
+}) {
   const [status, setStatus] = useState(invoice.status);
 
   // Path 1: watch the chain directly. Independent of the customer's browser —
@@ -50,6 +58,17 @@ export function PosScreen({ invoice, payUrl }: { invoice: PublicInvoice; payUrl:
     if (status === 'paid') playPaidChime();
   }, [status]);
 
+  // Demo mode: after a beat, ask the server to pay this invoice from the ops
+  // wallet. The endpoint re-checks merchant + status server-side; this call is
+  // just a trigger, not trusted.
+  useEffect(() => {
+    if (!demo || status !== 'pending') return;
+    const t = setTimeout(() => {
+      void fetch(`/api/demo/${invoice.id}/pay`, { method: 'POST' });
+    }, 4500);
+    return () => clearTimeout(t);
+  }, [demo, invoice.id, status]);
+
   if (status === 'paid') {
     return (
       <div className="pos-paid" role="status" aria-live="assertive">
@@ -60,6 +79,12 @@ export function PosScreen({ invoice, payUrl }: { invoice: PublicInvoice; payUrl:
         </div>
         <h1>PAID</h1>
         <p className="pos-paid-amount">{invoice.amountDisplay} USDC · {invoice.description}</p>
+        {demo && (
+          <p className="demo-note">
+            That was a real transaction on Arc Testnet.{' '}
+            <a href="/">Back to the homepage</a>
+          </p>
+        )}
       </div>
     );
   }
@@ -75,6 +100,13 @@ export function PosScreen({ invoice, payUrl }: { invoice: PublicInvoice; payUrl:
           {invoice.amountDisplay}<span className="unit">USDC</span>
         </p>
       </div>
+
+      {demo && !expired && (
+        <p className="demo-banner">
+          <span className="beacon" aria-hidden />
+          Live demo — the ops wallet pays this invoice in a few seconds
+        </p>
+      )}
 
       <div className="qr-tile">
         <QRCodeSVG value={payUrl} size={272} fgColor="#0b1020" bgColor="#fbfaf7" level="M" />
