@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { canAutoPay, demoAllowed, DEMO_BALANCE_FLOOR_18, DEMO_MAX_PER_WINDOW } from '@/lib/demo';
 import type { Invoice } from '@/db/schema';
 
-const DEMO_MERCHANT = '0x3333333333333333333333333333333333333333';
+const DEMO_MERCHANT = '0xabcdef3333333333333333333333333333333333';
 
 const base: Invoice = {
   id: '0x01',
@@ -17,7 +17,7 @@ const base: Invoice = {
   blockNumber: null,
   gasFee: null,
   paidAt: null,
-  wasLate: null,
+  wasLate: false,
 };
 
 const now = new Date('2026-07-17T10:01:00Z');
@@ -45,6 +45,10 @@ describe('demoAllowed', () => {
 
   it('allows exactly at the floor', () => {
     expect(demoAllowed({ ...healthy, relayerBalance18: DEMO_BALANCE_FLOOR_18 })).toEqual({ ok: true });
+  });
+
+  it('allows one under the rate cap', () => {
+    expect(demoAllowed({ ...healthy, recentCount: DEMO_MAX_PER_WINDOW - 1 })).toEqual({ ok: true });
   });
 });
 
