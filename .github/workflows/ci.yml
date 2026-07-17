@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+    types: [opened, reopened]
+
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: contracts
+    steps:
+      - uses: actions/checkout@v4
+      - uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: stable
+      - run: forge test
+
+  web:
+    runs-on: ubuntu-latest
+    env:
+      # Public contract addresses on Arc Testnet — not secrets.
+      NEXT_PUBLIC_ROUTER_ADDRESS: '0x8F560cA651B89FefdcC3273960f9b56BF69EdEaE'
+      NEXT_PUBLIC_FORWARDER_ADDRESS: '0x8Dc1252663F56dC50583c7edE727193C45347482'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm vitest run
+        working-directory: web
+      - run: pnpm next build
+        working-directory: web

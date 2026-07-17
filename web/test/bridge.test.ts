@@ -45,7 +45,9 @@ function deps(overrides: Partial<AdvanceDeps> = {}): AdvanceDeps {
   };
 }
 
-describe('bridge payment lifecycle', () => {
+// These tests insert real rows through lib/bridge and need a live database.
+// CI has no DATABASE_URL yet (a dedicated Neon branch is planned); skip there.
+describe.runIf(process.env.DATABASE_URL)('bridge payment lifecycle', () => {
   it('creates a row in burn_confirmed and finds it by invoice', async () => {
     const { invoice, bp } = await freshBridgePayment();
     expect(bp.status).toBe('burn_confirmed');
