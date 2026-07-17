@@ -421,7 +421,7 @@ body {
   color: #9aa1b4;
   font-size: 1rem;
 }
-.pos-wait .beacon {
+.pos-wait .beacon, .demo-banner .beacon {
   width: 9px;
   height: 9px;
   border-radius: 50%;
@@ -727,6 +727,6 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .act, .act:hover, .stamp, .act--working .tick,
-  .stamp-lg, .pos-wait .beacon, .pos-paid,
+  .stamp-lg, .pos-wait .beacon, .demo-banner .beacon, .pos-paid,
   .charge-btn, .signin .cta { animation: none; transition: none; transform: none; }
 }
