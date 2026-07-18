@@ -50,10 +50,9 @@ export function Dashboard({ merchant }: { merchant: string }) {
   }
 
   return (
-    <main className="terminal-bg" style={{ minHeight: '100dvh' }}>
+    <main>
       <div className="console">
         <header className="console-head">
-          <p className="wordmark">ArcPay</p>
           <span className="who">
             <span className="dot" aria-hidden />
             {merchant.slice(0, 6)}…{merchant.slice(-4)}

@@ -517,7 +517,8 @@ body {
 .console-head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  /* only the who-line lives here now — the site header owns the wordmark */
+  justify-content: flex-end;
   gap: 1rem;
 }
 .wordmark {
@@ -701,12 +702,12 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 100dvh;
+  /* fills the .site column below the header instead of stacking a full viewport under it */
+  flex: 1;
   gap: 1.1rem;
   text-align: center;
   padding: 2rem;
 }
-.signin .wordmark { font-size: 2rem; }
 .signin .tagline { color: #9aa1b4; max-width: 22rem; }
 .signin .cta {
   margin-top: 0.8rem;

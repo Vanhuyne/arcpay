@@ -42,8 +42,7 @@ export function SignIn() {
   }
 
   return (
-    <main className="terminal-bg signin">
-      <p className="wordmark">ArcPay</p>
+    <main className="signin">
       <p className="tagline">Accept USDC at the counter. Settled in under a second.</p>
       {!isConnected ? (
         <button className="cta" onClick={() => connect({ connector: connectors[0] })}>
