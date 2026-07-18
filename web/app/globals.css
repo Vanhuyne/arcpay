@@ -1049,3 +1049,43 @@ body {
   .hero-receipt { margin: 0 auto; }
   .stats, .steps { grid-template-columns: 1fr; }
 }
+
+/* ---- 404 / error: the jammed printer ---- */
+.jam {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 1.5rem;
+}
+.jam-receipt {
+  max-width: 22rem;
+  text-align: center;
+  padding: 1.6rem 1.6rem 2rem;
+}
+.jam-title {
+  font-family: var(--font-space-mono), monospace;
+  font-size: 1.15rem;
+  letter-spacing: 0.04em;
+  margin-top: 1rem;
+  color: var(--alert);
+}
+.jam-text {
+  margin-top: 0.7rem;
+  font-size: 0.88rem;
+  color: var(--label);
+  line-height: 1.5;
+}
+.jam-link {
+  display: inline-block;
+  margin-top: 1.2rem;
+  font-size: 0.9rem;
+  color: var(--usdc-deep);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.jam-act {
+  margin-top: 1.2rem;
+  width: auto;
+  padding: 0.7rem 1.4rem;
+}
