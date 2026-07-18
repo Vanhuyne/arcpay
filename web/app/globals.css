@@ -736,6 +736,8 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  /* width:100% — auto cross-axis margins would otherwise shrink this flex item to fit-content */
+  width: 100%;
   max-width: 64rem;
   margin: 0 auto;
   padding: 1.1rem 1.5rem;
@@ -776,6 +778,8 @@ body {
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 0.8rem;
+  /* width:100% — same shrink-to-fit trap as .site-header */
+  width: 100%;
   max-width: 64rem;
   margin: 0 auto;
   padding: 1.4rem 1.5rem 2rem;
