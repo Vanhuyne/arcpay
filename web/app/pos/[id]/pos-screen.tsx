@@ -79,10 +79,14 @@ export function PosScreen({
         </div>
         <h1>PAID</h1>
         <p className="pos-paid-amount">{invoice.amountDisplay} USDC · {invoice.description}</p>
-        {demo && (
-          <p className="demo-note">
+        {demo ? (
+          <p className="pos-note">
             That was a real transaction on Arc Testnet.{' '}
             <a href="/">Back to the homepage</a>
+          </p>
+        ) : (
+          <p className="pos-note">
+            <a href="/dashboard">Charge the next customer</a>
           </p>
         )}
       </div>
