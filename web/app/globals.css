@@ -725,6 +725,9 @@ body {
 .signin .cta:hover { background: var(--usdc-deep); transform: translateY(-1px); }
 .signin .cta:disabled { opacity: 0.6; cursor: default; transform: none; }
 .signin .cta:focus-visible { outline: 3px solid var(--usdc); outline-offset: 3px; }
+/* .wallet-line was drawn for the paper receipt; on the dark backdrop the link needs paper ink */
+.signin .wallet-line { margin-top: 0.2rem; }
+.signin .wallet-line .disconnect { color: var(--paper); }
 
 @media (prefers-reduced-motion: reduce) {
   .act, .act:hover, .stamp, .act--working .tick,

@@ -1,13 +1,14 @@
 'use client';
 
 import { useState } from 'react';
-import { useAccount, useConnect, useSignMessage } from 'wagmi';
+import { useAccount, useConnect, useDisconnect, useSignMessage } from 'wagmi';
 import { createSiweMessage } from 'viem/siwe';
 import { arcTestnet } from '@/lib/arc';
 
 export function SignIn() {
   const { address, isConnected } = useAccount();
   const { connect, connectors } = useConnect();
+  const { disconnect } = useDisconnect();
   const { signMessageAsync } = useSignMessage();
   const [busy, setBusy] = useState(false);
 
@@ -49,9 +50,17 @@ export function SignIn() {
           Connect wallet
         </button>
       ) : (
-        <button className="cta" onClick={signIn} disabled={busy}>
-          {busy ? 'Check your wallet…' : `Sign in as ${address?.slice(0, 6)}…${address?.slice(-4)}`}
-        </button>
+        <>
+          <button className="cta" onClick={signIn} disabled={busy}>
+            {busy ? 'Check your wallet…' : `Sign in as ${address?.slice(0, 6)}…${address?.slice(-4)}`}
+          </button>
+          <p className="wallet-line">
+            Not you?
+            <button className="disconnect" onClick={() => disconnect()}>
+              Disconnect
+            </button>
+          </p>
+        </>
       )}
     </main>
   );
