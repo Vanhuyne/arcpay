@@ -16,6 +16,11 @@ export function Dashboard({ merchant }: { merchant: string }) {
 
   async function load() {
     const res = await fetch('/api/invoices', { cache: 'no-store' });
+    if (res.status === 401) {
+      router.refresh(); // session expired or signed out elsewhere -> SignIn
+      return;
+    }
+    if (!res.ok) return; // transient server error; keep the last good list
     const data = await res.json();
     setInvoices(data.invoices);
     setRevenue6(BigInt(data.revenue6));
