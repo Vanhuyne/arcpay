@@ -798,3 +798,254 @@ body {
 .site-footer a:hover {
   color: var(--paper);
 }
+
+/* ---- landing page ---- */
+.site {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+.site-main {
+  flex: 1;
+  width: 100%;
+  max-width: 64rem;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+}
+.hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 3rem;
+  padding: 4.5rem 0 4rem;
+}
+.hero h1 {
+  font-size: clamp(1.9rem, 4.5vw, 3rem);
+  line-height: 1.12;
+  letter-spacing: -0.02em;
+  font-weight: 650;
+}
+.hero-sub {
+  margin-top: 1.1rem;
+  max-width: 34rem;
+  color: var(--label);
+  font-size: 1.05rem;
+  line-height: 1.55;
+}
+.hero-cta {
+  margin-top: 2rem;
+}
+.hero-cta-row {
+  display: flex;
+  align-items: center;
+  gap: 1.2rem;
+  flex-wrap: wrap;
+}
+.hero-act {
+  width: auto;
+  padding: 0.85rem 1.6rem;
+}
+.hero-secondary {
+  color: var(--paper);
+  font-size: 0.95rem;
+  text-decoration: none;
+  border-bottom: 1px solid rgba(251, 250, 247, 0.35);
+  padding-bottom: 2px;
+}
+.hero-secondary:hover {
+  border-color: var(--usdc);
+}
+.hero-note {
+  margin-top: 0.9rem;
+  font-size: 0.85rem;
+  color: var(--alert);
+}
+
+/* hero receipt animation — a 9s loop: print → QR → PAID stamp → settle time */
+.hero-receipt {
+  max-width: 19rem;
+  padding: 1.5rem 1.6rem 2rem;
+  text-align: center;
+}
+.hero-receipt .hr-desc {
+  font-size: 0.95rem;
+  margin-top: 0.9rem;
+}
+.hero-receipt .hr-qr {
+  width: 7.5rem;
+  margin: 1rem auto 0;
+  display: block;
+  color: var(--body);
+}
+.hero-receipt .hr-stamp {
+  margin: 1.1rem auto 0;
+}
+.hero-receipt .hr-time {
+  font-family: var(--font-space-mono), monospace;
+  font-size: 0.8rem;
+  color: var(--settle);
+  margin-top: 0.5rem;
+}
+.hr-item, .hr-stamp, .hr-time { opacity: 0; }
+.hr-i1 { animation: hr-i1 9s ease infinite; }
+.hr-i2 { animation: hr-i2 9s ease infinite; }
+.hr-i3 { animation: hr-i3 9s ease infinite; }
+.hero-receipt .hr-stamp { animation: hr-stamp 9s ease infinite; }
+.hero-receipt .hr-time { animation: hr-time 9s ease infinite; }
+@keyframes hr-i1 {
+  0%, 3% { opacity: 0; transform: translateY(8px); }
+  8%, 92% { opacity: 1; transform: none; }
+  97%, 100% { opacity: 0; }
+}
+@keyframes hr-i2 {
+  0%, 9% { opacity: 0; transform: translateY(8px); }
+  14%, 92% { opacity: 1; transform: none; }
+  97%, 100% { opacity: 0; }
+}
+@keyframes hr-i3 {
+  0%, 16% { opacity: 0; transform: translateY(8px); }
+  22%, 92% { opacity: 1; transform: none; }
+  97%, 100% { opacity: 0; }
+}
+@keyframes hr-stamp {
+  0%, 50% { opacity: 0; transform: scale(1.7) rotate(-16deg); }
+  56%, 92% { opacity: 1; transform: scale(1) rotate(-8deg); }
+  97%, 100% { opacity: 0; }
+}
+@keyframes hr-time {
+  0%, 58% { opacity: 0; }
+  63%, 92% { opacity: 1; }
+  97%, 100% { opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hr-item, .hero-receipt .hr-stamp, .hero-receipt .hr-time {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  padding-top: 1rem;
+}
+.stat {
+  background: var(--ink-2);
+  border: 1px solid rgba(251, 250, 247, 0.08);
+  border-radius: 12px;
+  padding: 1.3rem 1.4rem;
+}
+.stat-figure {
+  font-family: var(--font-space-mono), monospace;
+  font-size: 1.7rem;
+  color: var(--paper);
+}
+.stat-label {
+  margin-top: 0.4rem;
+  font-size: 0.82rem;
+  color: var(--label);
+  line-height: 1.45;
+}
+.stats-honesty {
+  margin-top: 0.9rem;
+  font-size: 0.78rem;
+  color: var(--label);
+  opacity: 0.8;
+}
+
+.how {
+  padding: 4rem 0 1rem;
+}
+.how h2, .open h2 {
+  font-size: 1.5rem;
+  letter-spacing: -0.01em;
+  margin-bottom: 1.6rem;
+}
+.steps {
+  list-style: none;
+  counter-reset: step;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.4rem;
+}
+.steps li {
+  counter-increment: step;
+}
+.steps li::before {
+  content: counter(step, decimal-leading-zero);
+  font-family: var(--font-space-mono), monospace;
+  font-size: 0.8rem;
+  color: var(--usdc);
+}
+.steps h3 {
+  margin-top: 0.4rem;
+  font-size: 1.05rem;
+}
+.steps p {
+  margin-top: 0.4rem;
+  font-size: 0.88rem;
+  color: var(--label);
+  line-height: 1.5;
+}
+.how-bridge {
+  margin-top: 2.2rem;
+  border: 1px dashed rgba(251, 250, 247, 0.2);
+  border-radius: 12px;
+  padding: 1.2rem 1.4rem;
+  max-width: 44rem;
+}
+.how-bridge h3 {
+  font-size: 0.95rem;
+}
+.how-bridge p {
+  margin-top: 0.4rem;
+  font-size: 0.85rem;
+  color: var(--label);
+  line-height: 1.5;
+}
+
+.open {
+  padding: 3rem 0 4rem;
+}
+.open > p {
+  color: var(--label);
+  font-size: 0.9rem;
+}
+.open-list {
+  list-style: none;
+  margin-top: 1.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.open-list li {
+  display: flex;
+  gap: 1rem;
+  align-items: baseline;
+  font-size: 0.85rem;
+}
+.open-list span {
+  color: var(--label);
+  min-width: 10rem;
+}
+.open-list a {
+  font-family: var(--font-space-mono), monospace;
+  color: var(--paper);
+  text-decoration: none;
+  border-bottom: 1px solid rgba(251, 250, 247, 0.25);
+  word-break: break-all;
+}
+.open-list a:hover {
+  border-color: var(--usdc);
+}
+
+@media (max-width: 760px) {
+  .hero {
+    grid-template-columns: 1fr;
+    padding-top: 3rem;
+  }
+  .hero-receipt { margin: 0 auto; }
+  .stats, .steps { grid-template-columns: 1fr; }
+}
